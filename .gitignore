@@ -1,0 +1,6 @@
+data/**/*
+v1/
+.venv/
+.DS_Store
+land-polygons-split-4326/
+**/*ipynb
