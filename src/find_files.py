@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 # Step 1: Generate all possible tile names
-latitudes = list(range(-90, 90, 3))  # -90 to +87
-longitudes = list(range(-180, 180, 3))  # -180 to +177
+latitudes = list(range(-90, 90, 1))  # -90 to +87
+longitudes = list(range(-180, 180, 1))  # -180 to +177
 
 all_tiles = []
 

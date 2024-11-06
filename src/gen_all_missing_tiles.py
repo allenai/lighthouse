@@ -2,21 +2,26 @@
 
 import os
 import re
-
-import geopandas as gpd
-import matplotlib.colors as colors
-import matplotlib.pyplot as plt
 import numpy as np
+import geopandas as gpd
 import rasterio
 from rasterio import features
 from rasterio.transform import from_bounds
 from shapely.geometry import box
+from concurrent.futures import ProcessPoolExecutor
+from tqdm import tqdm
 
-# Step 1: Define Functions to Parse Tile Names and Create Polygons
-
+# Global variable to hold land polygons for multiprocessing workers
+global_land_polygons_gdf = None
+output_dir = "resampled_2/"
+# Define the LAND_COVER_TYPES mapping
+LAND_COVER_TYPES = {
+    1: "Land",
+    80: "Permanent water bodies",
+}
 
 def parse_tile_filename(filename):
-    pattern = r"v200/2021/map/ESA_WorldCover_10m_2021_v200_([NS])(\d{2})([EW])(\d{3})_Map\.tif"
+    pattern = r"Ai2_WorldCover_10m_2024_v1_([NS])(\d{2})([EW])(\d{3})_Map\.tif"
     match = re.match(pattern, filename)
     if match:
         lat_prefix, lat_str, lon_prefix, lon_str = match.groups()
@@ -30,125 +35,72 @@ def parse_tile_filename(filename):
     else:
         return None
 
-
 def get_tile_bounds(lat, lon):
-    # Each tile is 3x3 degrees
-    lat_min = lat
-    lat_max = lat + 3
-    lon_min = lon
-    lon_max = lon + 3
-    return (lon_min, lat_min, lon_max, lat_max)
-
+    return (lon, lat, lon + 1, lat + 1)
 
 def create_tile_name(lat, lon):
-    lat_prefix = "N" if lat >= 0 else "S"
-    lon_prefix = "E" if lon >= 0 else "W"
-    lat_str = f"{abs(lat):02d}"
-    lon_str = f"{abs(lon):03d}"
-    tile_name = f"{lat_prefix}{lat_str}{lon_prefix}{lon_str}"
-    return tile_name
+    return f"{'N' if lat >= 0 else 'S'}{abs(lat):02d}{'E' if lon >= 0 else 'W'}{abs(lon):03d}"
 
+def load_land_polygons(shapefile_path):
+    global global_land_polygons_gdf
+    land_polygons = gpd.read_file(shapefile_path)
+    if land_polygons.crs != "EPSG:4326":
+        land_polygons = land_polygons.to_crs("EPSG:4326")
+    global_land_polygons_gdf = land_polygons
+    return global_land_polygons_gdf
 
-# Step 2: Load Land Polygons
+def find_missing_tiles(resampled_dir, tiles_with_land_set):
+    existing_tiles = set()
+    for f in os.listdir(resampled_dir):
+        if f.endswith('.tif'):
+            tile_coords = parse_tile_filename(f)
+            if tile_coords:
+                existing_tiles.add(tile_coords)
+    missing_tiles = tiles_with_land_set - existing_tiles
+    return sorted(list(missing_tiles))
 
-# Path to land polygons shapefile
-land_shapefile = "land-polygons-split-4326/land_polygons.shp"
-
-# Load land polygons
-print("Loading land polygons...")
-land_polygons_gdf = gpd.read_file(land_shapefile)
-# Ensure CRS is WGS84
-land_polygons_gdf = land_polygons_gdf.to_crs("EPSG:4326")
-
-# Step 3: Load Missing Tiles List
-
-missing_tiles_file = "missing_land_tiles.txt"
-
-# Read the list of missing tiles
-print(f"Reading missing tiles from {missing_tiles_file}...")
-with open(missing_tiles_file, "r") as f:
-    missing_tiles_list = [line.strip() for line in f if line.strip()]
-
-# Step 4: Create Output Directory
-
-output_dir = "v1/2024/map/"
-os.makedirs(output_dir, exist_ok=True)
-
-# Step 5: Process Each Missing Tile
-
-for tile_index, tile_path in enumerate(missing_tiles_list):
-    print(f"\nProcessing tile {tile_index + 1}/{len(missing_tiles_list)}: {tile_path}")
-
-    # Parse tile filename to get lat and lon
-    coords = parse_tile_filename(tile_path)
-    if coords:
-        lat, lon = coords
-        tile_name = create_tile_name(lat, lon)
-        tile_bounds = get_tile_bounds(lat, lon)
-    else:
-        print(f"Could not parse tile name: {tile_path}")
-        continue
-
-    # Create tile geometry
+def process_single_tile(tile):
+    global global_land_polygons_gdf
+    lat, lon = tile
+    tile_name = create_tile_name(lat, lon)
+    tile_bounds = get_tile_bounds(lat, lon)
     tile_geom = box(*tile_bounds)
-
-    # Create GeoDataFrame for tile geometry
     tile_gdf = gpd.GeoDataFrame({"geometry": [tile_geom]}, crs="EPSG:4326")
 
-    # Clip land polygons to tile
-    possible_matches_index = list(
-        land_polygons_gdf.sindex.intersection(tile_geom.bounds)
-    )
-    possible_matches = land_polygons_gdf.iloc[possible_matches_index]
+    # Find polygons intersecting the tile
+    possible_matches_index = list(global_land_polygons_gdf.sindex.intersection(tile_geom.bounds))
+    possible_matches = global_land_polygons_gdf.iloc[possible_matches_index]
     land_in_tile = gpd.overlay(possible_matches, tile_gdf, how="intersection")
 
-    print(f"Number of land polygons in tile: {len(land_in_tile)}")
-
     if land_in_tile.empty:
-        print(f"No land found in tile {tile_name}, skipping rasterization.")
-        continue
+        return f"No land found in tile {tile_name}, skipping rasterization."
 
-    # Fix invalid geometries
+    # Clean geometries
     land_in_tile["geometry"] = land_in_tile["geometry"].buffer(0)
     land_in_tile = land_in_tile[land_in_tile.is_valid]
 
-    # Prepare shapes for rasterization
     shapes = ((geom, 1) for geom in land_in_tile.geometry)
-    num_shapes = len(land_in_tile)
-    print(f"Number of shapes to rasterize: {num_shapes}")
-
-    # Define raster resolution (adjust as needed)
-    width = 1800  # Number of pixels in x-direction (longitude)
-    height = 1800  # Number of pixels in y-direction (latitude)
+    width = 12000  # 10m resolution over 1 degree
+    height = 12000
     transform = from_bounds(*tile_bounds, width, height)
-    print(f"Transform: {transform}")
-    print(f"Raster size: width={width}, height={height}")
 
     # Rasterize
     burned = features.rasterize(
         shapes=shapes,
         out_shape=(height, width),
         transform=transform,
-        fill=0,
+        fill=80,  # Assuming water is 80
         all_touched=True,
         dtype=np.uint8,
     )
 
-    # Check unique values in raster
     unique_values = np.unique(burned)
-    print(f"Unique values in raster: {unique_values}")
+    if unique_values.size == 1 and unique_values[0] == 80:
+        return f"Rasterization resulted in all water for tile {tile_name}, skipping save."
 
-    if unique_values.size == 1 and unique_values[0] == 0:
-        print(
-            f"Rasterization resulted in all zeros for tile {tile_name}, skipping save."
-        )
-        continue
-
-    # Output filename with dynamic tile name
     output_filename = f"Ai2_WorldCover_10m_2024_v1_{tile_name}_Map.tif"
     output_path = os.path.join(output_dir, output_filename)
 
-    # Define the metadata
     out_meta = {
         "driver": "GTiff",
         "height": burned.shape[0],
@@ -157,28 +109,56 @@ for tile_index, tile_path in enumerate(missing_tiles_list):
         "dtype": "uint8",
         "crs": "EPSG:4326",
         "transform": transform,
+        "compress": "lzw",
+        "tiled": True,
+        "blockxsize": 256,
+        "blockysize": 256,
+        "nodata": None,  # Set to None or an appropriate value
     }
 
-    # Save the raster
     with rasterio.open(output_path, "w", **out_meta) as dst:
         dst.write(burned, 1)
 
-    print(f"Raster saved to {output_path}")
+    return f"Raster saved to {output_path}"
 
-    # Optional Visualization
-    # Uncomment the following block to visualize each tile
-    """
-    # Define a colormap
-    cmap = colors.ListedColormap(['blue', 'green'])  # 0: blue (water), 1: green (land)
-    bounds = [0, 0.5, 1]
-    norm = colors.BoundaryNorm(bounds, cmap.N)
+def process_missing_tiles_parallel(missing_tiles_list, max_workers=None):
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        results = list(tqdm(
+            executor.map(process_single_tile, missing_tiles_list),
+            total=len(missing_tiles_list),
+            desc="Processing Missing Tiles in Parallel"
+        ))
+    for result in results:
+        if result:
+            print(result)
 
-    plt.figure(figsize=(6, 6))
-    plt.imshow(burned, cmap=cmap, norm=norm, extent=tile_bounds, origin='upper')
-    plt.title(f"Tile {tile_name}: Land (green) and Water (blue)")
-    plt.xlabel('Longitude')
-    plt.ylabel('Latitude')
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
-    """
+def main():
+    shapefile_path = "land-polygons-split-4326/land_polygons.shp"
+    resampled_dir = "data/resampled/"
+    output_dir = "resampled_2/"
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Generate set of tiles from 80°N to 90°N inclusive
+    latitudes = range(80, 91, 1)
+    longitudes = range(-180, 180, 1)
+    tiles_with_land_set = {
+        (lat, lon) for lat in latitudes for lon in longitudes
+    }
+
+    # Load global land polygons for multiprocessing
+    load_land_polygons(shapefile_path)
+
+    # Find missing tiles
+    missing_tiles_list = find_missing_tiles(resampled_dir, tiles_with_land_set)
+    print(f"Missing tiles count: {len(missing_tiles_list)}")
+
+    if not missing_tiles_list:
+        print("No missing tiles to process.")
+        return
+
+    # Process missing tiles in parallel
+    process_missing_tiles_parallel(missing_tiles_list)
+    print("Completed processing missing tiles.")
+
+if __name__ == "__main__":
+    main()

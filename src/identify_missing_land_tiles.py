@@ -1,43 +1,32 @@
 #!/usr/bin/env python3
 
 import re
-
 import geopandas as gpd
 from shapely.geometry import Polygon
 
 # Step 1: Generate the Full Tile Grid
-
-
 def generate_tile_grid():
-    latitudes = list(range(-90, 90, 3))  # From -90 to 87 degrees
-    longitudes = list(range(-180, 180, 3))  # From -180 to 177 degrees
+    latitudes = list(range(-90, 90, 1))  # From -90 to 89 degrees at 1x1 resolution
+    longitudes = list(range(-180, 180, 1))  # From -180 to 179 degrees at 1x1 resolution
     tiles = []
 
     for lat in latitudes:
         for lon in longitudes:
             # Latitude string
-            if lat >= 0:
-                lat_prefix = "N"
-                lat_str = f"{lat:02d}"
-            else:
-                lat_prefix = "S"
-                lat_str = f"{abs(lat):02d}"
+            lat_prefix = "N" if lat >= 0 else "S"
+            lat_str = f"{abs(lat):02d}"
 
             # Longitude string
-            if lon >= 0:
-                lon_prefix = "E"
-                lon_str = f"{lon:03d}"
-            else:
-                lon_prefix = "W"
-                lon_str = f"{abs(lon):03d}"
+            lon_prefix = "E" if lon >= 0 else "W"
+            lon_str = f"{abs(lon):03d}"
 
             tile_name = f"v200/2021/map/ESA_WorldCover_10m_2021_v200_{lat_prefix}{lat_str}{lon_prefix}{lon_str}_Map.tif"
 
             # Create tile polygon
             lat_min = lat
-            lat_max = lat + 3
+            lat_max = lat + 1
             lon_min = lon
-            lon_max = lon + 3
+            lon_max = lon + 1
 
             tile_polygon = Polygon(
                 [
@@ -55,10 +44,7 @@ def generate_tile_grid():
     tiles_gdf = gpd.GeoDataFrame(tiles, crs="EPSG:4326")
     return tiles_gdf
 
-
 # Step 2: Load Land Polygons
-
-
 def load_land_polygons(shapefile_path):
     land_polygons = gpd.read_file(shapefile_path)
     # Ensure the CRS is WGS84
@@ -66,10 +52,7 @@ def load_land_polygons(shapefile_path):
         land_polygons = land_polygons.to_crs("EPSG:4326")
     return land_polygons
 
-
 # Step 3: Determine Tiles Covering Land
-
-
 def get_tiles_covering_land(tiles_gdf, land_polygons_gdf):
     # Spatial join to find tiles that intersect with land polygons
     tiles_with_land = gpd.sjoin(
@@ -79,10 +62,7 @@ def get_tiles_covering_land(tiles_gdf, land_polygons_gdf):
     tiles_with_land = tiles_with_land.drop_duplicates(subset="tile_name")
     return tiles_with_land
 
-
 # Step 4: Compare with Existing Tiles
-
-
 def get_missing_tiles(tiles_with_land_gdf, existing_tiles_list):
     existing_tiles_set = set(existing_tiles_list)
     tiles_with_land_set = set(tiles_with_land_gdf["tile_name"])
@@ -91,17 +71,14 @@ def get_missing_tiles(tiles_with_land_gdf, existing_tiles_list):
     missing_tiles_list = sorted(list(missing_tiles_set))
     return missing_tiles_list
 
-
 # Main Function
-
-
 def main():
     # Paths to your files
     shapefile_path = "land-polygons-split-4326/land_polygons.shp"
     existing_tiles_file = "list_of_files.txt"
-    output_missing_tiles_file = "missing_land_tiles.txt"
+    output_missing_tiles_file = "missing_land_tiles_1x1.txt"
 
-    print("Generating tile grid...")
+    print("Generating tile grid at 1x1 degree resolution...")
     tiles_gdf = generate_tile_grid()
     print(f"Total tiles generated: {len(tiles_gdf)}")
 
@@ -128,7 +105,6 @@ def main():
             f.write(f"{tile}\n")
 
     print(f"Missing tiles saved to '{output_missing_tiles_file}'.")
-
 
 if __name__ == "__main__":
     main()
