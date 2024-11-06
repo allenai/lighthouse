@@ -104,7 +104,11 @@ def ball_tree_distance(ball_tree, point):
 
 def main(lat, lon):
     start_time = time.perf_counter()
-    filename_h5, lat_str, lon_str = get_filename_from_coordinates(lat, lon)
+    try:
+        filename_h5, lat_str, lon_str = get_filename_from_coordinates(lat, lon)
+    except:
+        nearest_point, _ = coord_to_coastal_point(lat, lon)
+
     land_water = h5_to_integer(filename_h5, lon, lat)
     try:
         tile_ball_tree = get_ball_tree(lat_str, lon_str)
