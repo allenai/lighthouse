@@ -6,8 +6,8 @@ import joblib
 from multiprocessing import Pool, cpu_count
 
 # Define input and output directories
-input_dir = '/home/patrickb/litus/src/coastal_data_points'  # Replace with your actual directory
-output_dir = '/home/patrickb/litus/src/ball_tress'
+input_dir = '/home/patrickb/litus/data/coastal_data_points'  # Replace with your actual directory
+output_dir = '/home/patrickb/litus/data/ball_trees/'
 os.makedirs(output_dir, exist_ok=True)  # Create output directory if it doesn't exist
 
 def create_and_save_ball_tree(file_path):
@@ -32,7 +32,7 @@ def create_and_save_ball_tree(file_path):
         output_path = os.path.join(output_dir, f"{base_name}_ball_tree.joblib")
 
         # Save the BallTree using joblib
-        joblib.dump(tree, output_path)
+        joblib.dump(tree, output_path, compress=0, protocol=5)
         print(f"Saved BallTree for {file_path} at {output_path}")
 
     except Exception as e:
