@@ -1,16 +1,16 @@
----
-name: Create and publish a Docker image
+name: Create and publish a Docker image to GitHub Container Registry
 
 on:
   push:
 
 env:
-  REGISTRY: gcr.io
-  IMAGE_NAME: skylight-docker-images/gh-actions/${{ github.repository }}/${{ github.ref_name }}
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}  # Automatically sets to "owner/repo"
 
 jobs:
   build-and-push-image:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -20,14 +20,12 @@ jobs:
       - name: Get short SHA
         run: echo "GIT_COMMIT_HASH_SHORT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      - name: Authenticate to Google Cloud
-        id: auth
-        uses: google-github-actions/auth@v1
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
         with:
-          credentials_json: "${{ secrets.ENCODED_GCR_KEY }}"
-
-      - name: Configure Docker
-        run: gcloud auth configure-docker
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
@@ -36,7 +34,9 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=sha,format=short
+            type=ref,event=branch
             type=raw,value=latest
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v3
         with:

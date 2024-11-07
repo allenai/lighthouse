@@ -1,4 +1,10 @@
 # litus
+# Run the container with the data directory mounted
+docker run -d \
+  --name coastal_detection \
+  -p 8000:8000 \
+  -v ~/litus/data:/src/data \
+  coastal_detection
 
 ## Development
 1. Download worldcover from European Space Agency

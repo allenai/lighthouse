@@ -1,19 +1,20 @@
-# Use Python 3.12 Alpine image
-FROM python:3.12-alpine
+# Use Python 3.12 slim image for better compatibility with GDAL
+FROM python:3.12-slim
 
-# Install necessary packages for FastAPI and data processing
-RUN apk update && apk add --no-cache \
-    ffmpeg \
-    libsm \
-    libxext \
-    hdf5-dev \
-    netcdf \
-    libnetcdf \
+# Install system dependencies for GDAL and other geospatial libraries
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gdal-bin \
+    libgdal-dev \
+    libproj-dev \
+    libgeos-dev \
     gcc \
     g++ \
-    musl-dev \
-    make \
-    && rm -rf /var/cache/apk/*
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set environment variables for GDAL
+ENV CPLUS_INCLUDE_PATH=/usr/include/gdal
+ENV C_INCLUDE_PATH=/usr/include/gdal
 
 # Copy requirements to leverage Docker cache if requirements haven't changed
 COPY requirements/requirements.txt /tmp/requirements.txt
@@ -30,5 +31,5 @@ COPY ./src /src
 # Expose the default FastAPI port
 EXPOSE 8000
 
-# Specify the default command to run
+# Specify the default command to run the application
 CMD ["python", "main.py"]
