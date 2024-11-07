@@ -64,7 +64,7 @@ def get_ball_tree(filename_ball_tree):
 
 def h5_to_integer(filename, lon, lat):
     """Retrieves land-water classification for given coordinates from an HDF5 file."""
-    filename = Path('data/h5s') / filename
+    filename = Path(__file__).resolve().parent.parent / 'data' / 'resampled_h5s' / filename
     with h5py.File(filename, 'r') as hdf:
         band_data = hdf['band_data']
         geotransform = hdf['geotransform'][:]
@@ -117,25 +117,9 @@ def main(lat, lon):
         return distance_m, 0, nearest_point  # 0 represents water in mapping
 
 if __name__ == "__main__":
-    # Example coordinates
-    # latitude = -63.047656
-    # longitude = -59.795090
+
     latitude = 47.636895
     longitude = -122.334984
-    latitude= 47.664664
-    longitude = -122.334760
-    latitude = 47.658376
-    longitude = -122.232656
-    latitide = 49.880614
-    longitude = -127.385760
-    latitude = 45.533379
-    longitude = -141.401894
-    latitude = 78.721321
-    longitude = -42.870568
-
-
-
-
 
     start = time.perf_counter()
     distance_m, land_or_water, nearest_point = main(latitude, longitude)
