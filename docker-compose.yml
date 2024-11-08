@@ -1,13 +1,9 @@
-version: "3.9"
+version: '3.8'
+
 services:
   test:
-    hostname: litus-test
-
     build:
       context: .
       dockerfile: Dockerfile
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    stdin_open: true
-    ports:
-      - 8000:8000
+    # Keep container running
+    command: tail -f /dev/null

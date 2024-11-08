@@ -31,19 +31,22 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build docker images
-        env:
-          EARTHDATA_TOKEN: "${{ secrets.EARTHDATA_TOKEN }}"
         run: |
-
           COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker compose build
 
       - name: Run unit and integration tests
         run: |
-          docker compose run test pytest --ignore=/src/tests/test_main.py -vv
+          # Start containers
+          COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker compose up -d
 
-      - name: Start server and test sample request
-        run: |
-          COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker compose -f docker-compose.yml up -d
+          # Wait for container to be ready
           sleep 5
-          docker ps -a
-          docker compose -f docker-compose.yml exec -T test pytest tests/test_main.py -vv
+
+          # Run the tests
+          docker compose exec -T test pytest tests/ -vv
+
+          # Run specific test file
+          docker compose exec -T test pytest tests/test_main.py -vv
+
+      - name: Cleanup
+        run: docker compose down
