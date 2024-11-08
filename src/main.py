@@ -4,16 +4,17 @@ from __future__ import annotations
 
 import logging.config
 import os
+from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
 import numpy as np
 import uvicorn
 from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from .pipeline import land_water_mapping
-from .pipeline import main as pipeline_main
+from pipeline import land_water_mapping
+from pipeline import main as pipeline_main
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -24,8 +25,18 @@ HOST: str = "0.0.0.0"  # nosec B104
 PORT: Union[str, int] = os.getenv("COASTAL_DETECTION_PORT", 8000)
 MODEL_VERSION: Union[str, datetime] = os.getenv("GIT_COMMIT_HASH", datetime.today())
 
-app = FastAPI()
-logger.info("Starting Coastal Detection Service")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Handle startup and shutdown events."""
+    # Startup
+    logger.info("Starting Coastal Detection Service")
+    yield
+    # Shutdown
+    logger.info("Shutting down Coastal Detection Service")
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 class RoundedFloat(float):
@@ -80,12 +91,6 @@ class CoastalDetectionResponse(BaseModel):
     land_cover_class: str
     nearest_coastal_point: List[float]
     version: datetime
-
-
-@app.on_event("startup")
-async def initialize() -> None:
-    """Initialize resources such as loading models or BallTree."""
-    logger.info("Initializing global resources")
 
 
 @app.get("/")
