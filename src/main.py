@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
+import uvicorn
 from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel, Field
 
@@ -140,6 +141,4 @@ async def detect_coastal_info(
 
 
 if __name__ == "__main__":
-    import uvicorn
-
     uvicorn.run("main:app", host=HOST, port=int(PORT), proxy_headers=True)

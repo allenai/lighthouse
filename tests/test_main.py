@@ -1,6 +1,7 @@
 """Tests for the Coastal Detection Service."""
 
-from typing import Any, Dict, Set
+from datetime import datetime
+from typing import Any, Dict, List, Set
 
 import pytest
 import requests
@@ -22,6 +23,14 @@ EXPECTED_KEYS: Set[str] = {
     "version",
 }
 
+# Sample valid response for testing
+SAMPLE_RESPONSE: Dict[str, Any] = {
+    "distance_to_coast_m": 275,
+    "land_cover_class": "Permanent water bodies",
+    "nearest_coastal_point": [47.63742, -122.33858],
+    "version": "2024-11-07T21:14:59.848461",
+}
+
 
 def test_home_endpoint() -> None:
     """Test the health check endpoint."""
@@ -41,12 +50,24 @@ def test_detect_endpoint_valid_request() -> None:
     # Check response structure
     assert set(response_data.keys()) == EXPECTED_KEYS
 
-    # Check data types
+    # Check data types and ranges
     assert isinstance(response_data["distance_to_coast_m"], int)
     assert isinstance(response_data["land_cover_class"], str)
     assert isinstance(response_data["nearest_coastal_point"], list)
     assert len(response_data["nearest_coastal_point"]) == 2
     assert all(isinstance(x, float) for x in response_data["nearest_coastal_point"])
+
+    # Check value ranges based on sample response
+    assert 0 <= response_data["distance_to_coast_m"] <= 1000  # Within 1km
+    assert response_data["land_cover_class"] in [
+        "Permanent water bodies",
+        "Land",
+        "Built-up",
+    ]
+    nearest_point: List[float] = response_data["nearest_coastal_point"]
+    assert 47.0 <= nearest_point[0] <= 48.0  # Latitude range
+    assert -123.0 <= nearest_point[1] <= -122.0  # Longitude range
+    assert isinstance(datetime.fromisoformat(response_data["version"]), datetime)
 
 
 def test_detect_endpoint_invalid_coordinates() -> None:
@@ -98,6 +119,13 @@ def test_live_api_request() -> None:
         assert response.status_code == 200
         response_data = response.json()
         assert set(response_data.keys()) == EXPECTED_KEYS
+
+        # Compare with sample response structure
+        assert isinstance(response_data["distance_to_coast_m"], int)
+        assert isinstance(response_data["land_cover_class"], str)
+        assert isinstance(response_data["nearest_coastal_point"], list)
+        assert len(response_data["nearest_coastal_point"]) == 2
+        assert datetime.fromisoformat(response_data["version"])
 
     except requests.exceptions.ConnectionError:
         pytest.skip("API server not running")
