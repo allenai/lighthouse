@@ -1,0 +1,13 @@
+version: "3.9"
+services:
+  test:
+    hostname: litus-test
+
+    build:
+      context: .
+      dockerfile: Dockerfile
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    stdin_open: true
+    ports:
+      - 8000:8000

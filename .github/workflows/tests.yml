@@ -38,14 +38,10 @@ jobs:
           COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker compose build
 
       - name: Run unit and integration tests
-        env:
-          EARTHDATA_TOKEN: "${{ secrets.EARTHDATA_TOKEN }}"
         run: |
           docker compose run test pytest --ignore=/src/tests/test_main.py -vv
 
       - name: Start server and test sample request
-        env:
-          EARTHDATA_TOKEN: "${{ secrets.EARTHDATA_TOKEN }}"
         run: |
           COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker compose -f docker-compose.yml up -d
           sleep 5
