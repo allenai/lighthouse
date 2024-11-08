@@ -99,10 +99,17 @@ def test_get_ball_tree(
         get_ball_tree("nonexistent.joblib")
 
 
+@patch("rasterio.transform.Affine")
 @patch("h5py.File")
-def test_h5_to_integer(mock_h5py: MagicMock, mock_h5_file: MagicMock) -> None:
+def test_h5_to_integer(
+    mock_h5py: MagicMock, mock_affine: MagicMock, mock_h5_file: MagicMock
+) -> None:
     """Test getting land-water classification."""
     mock_h5py.return_value.__enter__.return_value = mock_h5_file
+    mock_affine.return_value.__invert__.return_value.__mul__.return_value = (
+        0,
+        0,
+    )  # Mock row, col result
 
     land_class = h5_to_integer("test.h5", TEST_LON, TEST_LAT)
     assert isinstance(land_class, int)
