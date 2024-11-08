@@ -1,8 +1,6 @@
----
-
 # Litus
 
-**Litus** (Latin for "beach, shore, or coast") provides highly precise (10 meters) and fast (~milliseconds) distance-to-shoreline calculations from any point on Earth.
+**Litus** (Latin for "beach, shore, or coast") provides highly precise (10 meters) and fast (~milliseconds) distance-to-shoreline calculations from any point on Earth (on land or on the high seas).
 
 ## Requirements
 
