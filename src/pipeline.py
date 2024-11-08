@@ -28,8 +28,9 @@ coastal_ball_tree: Optional[BallTree] = None
 ball_tree_cache: Dict[str, BallTree] = {}  # Cache for Ball Trees
 
 # Load the saved bounds dictionary
-DATA_DIR = Path(__file__).parent.parent / "data"
+DATA_DIR = Path(__file__).parent / "data"
 bounds_file = DATA_DIR / "bounds_dictionary.json"
+
 try:
     with open(bounds_file, "r") as f:
         bounds_dict = json.load(f)

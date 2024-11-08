@@ -2,3 +2,4 @@
 src/build/**
 data/**
 .vscode/
+**/__pycache__/**
