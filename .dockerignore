@@ -1,5 +1,5 @@
 .git
 src/build/**
-data/**
+land-polygons-split-4326/**
 .vscode/
 **/__pycache__/**
