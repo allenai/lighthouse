@@ -1,13 +1,19 @@
 # litus
-docker build -t coastal_image_service .
+Highly precise and computationally efficient distance-to-shoreline calculations from any point on earth.
+
 # Run the container with the data directory mounted
+docker build -t coastal_image_service .
+
 docker run -d \
   --name coastal_image_service \
   -p 8000:8000 \
   -v ~/litus/data:/src/data \
   coastal_image_service
 
+
 ## Development
+
+To build the dataset
 1. Download worldcover from European Space Agency
 bash src/download_worldcover.sh
 2. Download land polygons from open street map

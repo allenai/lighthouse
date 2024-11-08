@@ -8,6 +8,7 @@ This module provides functionality to:
 """
 
 import json
+import logging
 import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -18,6 +19,9 @@ import numpy as np
 import rasterio.transform
 from numpy.typing import NDArray
 from sklearn.neighbors import BallTree
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 # Global variables
 coastal_ball_tree: Optional[BallTree] = None
@@ -46,12 +50,7 @@ land_water_mapping = {
 
 
 def initialize_coastal_ball_tree() -> BallTree:
-    """
-    Load and initialize the global coastal BallTree.
-
-    Returns:
-        BallTree: The loaded coastal points BallTree for distance calculations
-    """
+    """Load and initialize the global coastal BallTree."""
     global coastal_ball_tree
     if coastal_ball_tree is None:
         coastal_ball_tree = joblib.load("coastal_ball_tree.joblib")
@@ -59,18 +58,7 @@ def initialize_coastal_ball_tree() -> BallTree:
 
 
 def coord_to_coastal_point(lat: float, lon: float) -> Tuple[NDArray[np.float64], float]:
-    """
-    Find the nearest coastal point and its distance from given coordinates.
-
-    Args:
-        lat: Latitude of the query point
-        lon: Longitude of the query point
-
-    Returns:
-        Tuple containing:
-        - NDArray: Coordinates of nearest coastal point [lat, lon]
-        - float: Distance to nearest coastal point in meters
-    """
+    """Find nearest coastal point and distance from coordinates."""
     tree: BallTree = initialize_coastal_ball_tree()
     point_rad = np.radians([lat, lon])
     distance_rad, index = tree.query([point_rad], k=1)
@@ -83,42 +71,20 @@ def coord_to_coastal_point(lat: float, lon: float) -> Tuple[NDArray[np.float64],
 def get_filename_for_coordinates(
     lat: float, lon: float, bounds_dict: Dict[str, Dict[str, float]]
 ) -> Optional[str]:
-    """
-    Get the filename of the HDF5 file containing the given coordinates.
-
-    Args:
-        lat: Latitude of the query point
-        lon: Longitude of the query point
-        bounds_dict: Dictionary mapping filenames to their boundary coordinates
-
-    Returns:
-        Optional[str]: Filename if coordinates fall within a tile, None otherwise
-    """
+    """Get filename of HDF5 file containing the given coordinates."""
     for filename, bounds in bounds_dict.items():
         if (
             bounds["latmin"] <= lat < bounds["latmax"]
             and bounds["lonmin"] <= lon < bounds["lonmax"]
         ):
-            print(f"Correct match found: {filename}")
-            print(f"{bounds=}")
+            logger.debug("Found matching file: %s with bounds %s", filename, bounds)
             return filename
-    print(f"No matching file found for coordinates ({lat}, {lon}).")
+    logger.debug("No matching file found for coordinates (%f, %f)", lat, lon)
     return None
 
 
 def get_ball_tree(filename_ball_tree: str) -> BallTree:
-    """
-    Load a BallTree from a joblib file for a specific region.
-
-    Args:
-        filename_ball_tree: Name of the BallTree file to load
-
-    Returns:
-        BallTree: The loaded BallTree for the specified region
-
-    Raises:
-        FileNotFoundError: If the BallTree file doesn't exist
-    """
+    """Load a BallTree from a joblib file for a specific region."""
     filename = (
         Path(__file__).resolve().parent.parent
         / "data"
@@ -133,17 +99,7 @@ def get_ball_tree(filename_ball_tree: str) -> BallTree:
 
 
 def h5_to_integer(filename: str, lon: float, lat: float) -> int:
-    """
-    Get land-water classification for coordinates from HDF5 file.
-
-    Args:
-        filename: Name of the HDF5 file to read
-        lon: Longitude of the query point
-        lat: Latitude of the query point
-
-    Returns:
-        int: Land cover classification code from the WorldCover mapping
-    """
+    """Get land-water classification for coordinates from HDF5 file."""
     filepath = (
         Path(__file__).resolve().parent.parent / "data" / "resampled_h5s" / filename
     )
@@ -151,25 +107,14 @@ def h5_to_integer(filename: str, lon: float, lat: float) -> int:
         band_data = hdf["band_data"]
         geotransform = hdf["geotransform"][:]
         row, col = ~rasterio.transform.Affine(*geotransform) * (lon, lat)
-        print(f"{row=}, {col=}")
-        return band_data[int(col), int(row)]
+        logger.debug("Image coordinates: row=%f, col=%f", row, col)
+        return int(band_data[int(col), int(row)])
 
 
 def ball_tree_distance(
     ball_tree: BallTree, point: List[float]
 ) -> Tuple[float, NDArray[np.float64]]:
-    """
-    Calculate distance from a point to nearest coastal point in BallTree.
-
-    Args:
-        ball_tree: BallTree containing coastal points
-        point: Query point coordinates [lat, lon]
-
-    Returns:
-        Tuple containing:
-        - float: Distance to nearest coastal point in meters
-        - NDArray: Coordinates of nearest coastal point [lat, lon]
-    """
+    """Calculate distance from point to nearest coastal point in BallTree."""
     point_rad = np.radians(point)
     distance_rad, index = ball_tree.query([point_rad], k=1)
     nearest_point_rad = ball_tree.data[index[0][0]]
@@ -179,64 +124,48 @@ def ball_tree_distance(
 
 
 def main(lat: float, lon: float) -> Tuple[float, int, NDArray[np.float64]]:
-    """
-    Main function to process coordinates and return coastal information.
-
-    This function handles two pathways:
-    1. Point falls within a tile: Use local BallTree and land classification
-    2. Point is in ocean: Use global coastal BallTree
-
-    Args:
-        lat: Latitude of the query point
-        lon: Longitude of the query point
-
-    Returns:
-        Tuple containing:
-        - float: Distance to nearest coastal point in meters
-        - int: Land cover classification code
-        - NDArray: Coordinates of nearest coastal point [lat, lon]
-
-    Raises:
-        ValueError: If no tile can be found for the nearest coastal point
-    """
+    """Process coordinates and return coastal information."""
     filename_h5 = get_filename_for_coordinates(lat, lon, bounds_dict)
 
     if filename_h5:
-        print("Pathway 1: Point is within a tile.")
+        logger.info("Processing point within tile")
         land_class = h5_to_integer(filename_h5, lon, lat)
 
-        filename_ball_tree = filename_h5.replace(
-            ".h5", "_coastal_points_ball_tree.joblib"
-        )
+        ball_tree_suffix = "_coastal_points_ball_tree.joblib"
+        filename_ball_tree = filename_h5.replace(".h5", ball_tree_suffix)
         filename_ball_tree = filename_ball_tree.replace("resampled_h5s", "ball_trees")
         try:
-            print(filename_ball_tree)
+            logger.debug("Using ball tree: %s", filename_ball_tree)
             tile_ball_tree = get_ball_tree(filename_ball_tree)
             distance_m, nearest_point = ball_tree_distance(tile_ball_tree, [lat, lon])
             return distance_m, land_class, nearest_point
         except FileNotFoundError:
-            print("Pathway 1: Point is within a tile but no coastal points nearby")
-            print("Ball tree does not exist, tile is all land")
+            logger.info("Point is within tile but no coastal points nearby")
+            logger.debug("Ball tree does not exist, tile is all land")
             nearest_point, distance_m = coord_to_coastal_point(lat, lon)
             new_filename_h5 = get_filename_for_coordinates(
                 nearest_point[0], nearest_point[1], bounds_dict
             )
             if new_filename_h5 is None:
                 raise ValueError("Could not find tile for nearest coastal point")
-            filename_ball_tree = new_filename_h5.replace(
-                ".h5", "_coastal_points_ball_tree.joblib"
-            )
+            filename_ball_tree = new_filename_h5.replace(".h5", ball_tree_suffix)
             tile_ball_tree = get_ball_tree(filename_ball_tree)
             distance_m, nearest_point = ball_tree_distance(tile_ball_tree, [lat, lon])
             return distance_m, land_class, nearest_point
 
     else:
-        print("Pathway 2: Point is not within any tile (ocean)")
+        logger.info("Point is not within any tile (ocean)")
         nearest_point, distance_m = coord_to_coastal_point(lat, lon)
         return distance_m, 0, nearest_point  # 0 represents water
 
 
 if __name__ == "__main__":
+    # Configure logging for command line usage
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
     latitude = 47.636895
     longitude = -122.334984
 
@@ -247,5 +176,5 @@ if __name__ == "__main__":
         f"land cover class: {land_water_mapping[land_or_water]}, "
         f"nearest coastal point: {nearest_point}"
     )
-    print(result)
-    print(f"{time.perf_counter() - start}")
+    logger.info(result)
+    logger.info("Processing time: %f seconds", time.perf_counter() - start)

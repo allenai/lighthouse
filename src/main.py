@@ -32,7 +32,9 @@ class RoundedFloat(float):
     """Rounds floats to a specified number of decimal places."""
 
     def __new__(
-        cls, value: Union[float, np.float32, np.float64], n_decimals: Optional[int] = 5
+        cls,
+        value: Union[float, np.float32, np.float64],
+        n_decimals: Optional[int] = 5,
     ) -> RoundedFloat:
         if n_decimals is not None:
             cls.n_decimals = n_decimals
@@ -87,7 +89,7 @@ class CoastalDetectionResponse(BaseModel):
 @app.on_event("startup")
 async def initialize() -> None:
     """Initialize resources such as loading models or BallTree."""
-    logger.info("Initializing global resources for Coastal Detection Service")
+    logger.info("Initializing global resources")
 
 
 @app.get("/")
@@ -98,10 +100,10 @@ async def home() -> Dict[str, str]:
 
 @app.post("/detect", response_model=CoastalDetectionResponse)
 async def detect_coastal_info(
-    request: CoastalDetectionRequest, response: Response
+    request: CoastalDetectionRequest,
+    response: Response,
 ) -> CoastalDetectionResponse:
-    """
-    Detect coastal information for given coordinates.
+    """Detect coastal information for given coordinates.
 
     Args:
         request: The request containing lat/lon coordinates
@@ -116,13 +118,14 @@ async def detect_coastal_info(
     try:
         # Run the detection logic from pipeline
         distance_m, land_class_id, nearest_point = pipeline_main(
-            request.lat, request.lon
+            request.lat,
+            request.lon,
         )
 
         # Map land cover class
         land_cover_class = land_water_mapping.get(land_class_id, "Unknown")
-        logger.info(land_cover_class)
-        logger.info(distance_m)
+        logger.info("Land cover class: %s", land_cover_class)
+        logger.info("Distance to coast: %d m", distance_m)
 
         # Prepare the response with rounded coordinates
         return CoastalDetectionResponse(
@@ -136,9 +139,17 @@ async def detect_coastal_info(
         )
 
     except Exception as e:
-        logger.error(f"Error in processing detection request: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        logger.error("Error in processing request: %s", str(e))
+        raise HTTPException(
+            status_code=500,
+            detail="Internal Server Error",
+        )
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host=HOST, port=int(PORT), proxy_headers=True)
+    uvicorn.run(
+        "main:app",
+        host=HOST,
+        port=int(PORT),
+        proxy_headers=True,
+    )

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import logging
 import os
 import re
 from multiprocessing import Pool, cpu_count
@@ -11,6 +12,9 @@ import rasterio
 from numpy.typing import NDArray
 from rasterio.windows import Window
 from tqdm import tqdm
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 # Directory paths
 input_dir = "/home/patrickb/litus/data/ESA_WORLDCOVER/"
@@ -34,7 +38,7 @@ def split_and_resample(file_path: str) -> None:
     match: Optional[Match[str]] = pattern.match(file_name)
 
     if not match:
-        print(f"Filename does not match expected format: {file_name}")
+        logger.warning("Filename does not match expected format: %s", file_name)
         return
 
     lat_prefix, lon_prefix = match.groups()
@@ -60,13 +64,21 @@ def split_and_resample(file_path: str) -> None:
 
                 # Check if all data is NoData
                 if src.nodata is not None and np.all(tile_data == src.nodata):
-                    print(f"Tile {new_lat}, {new_lon} is all NoData. Skipping.")
+                    logger.debug(
+                        "Tile %d, %d is all NoData. Skipping.",
+                        new_lat,
+                        new_lon,
+                    )
                     continue
 
                 # Check if all valid data is water
                 valid_data: NDArray = tile_data[tile_data != src.nodata]
                 if valid_data.size > 0 and np.all(valid_data == WATER_VALUE):
-                    print(f"Tile {new_lat}, {new_lon} is all water. Skipping.")
+                    logger.debug(
+                        "Tile %d, %d is all water. Skipping.",
+                        new_lat,
+                        new_lon,
+                    )
                     continue
 
                 # Create the new filename
@@ -99,16 +111,22 @@ def split_and_resample(file_path: str) -> None:
                     for band in range(1, src.count + 1):
                         dst.write(src.read(band, window=window), band)
 
-    print(f"Resampled and saved 1x1 tiles from {file_name}")
+    logger.info("Resampled and saved 1x1 tiles from %s", file_name)
 
 
 def main() -> None:
     """Process and resample all GeoTIFF files in parallel."""
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
     # Gather all GeoTIFF files in the input directory
     tif_files: List[str] = [str(f) for f in Path(input_dir).glob("*.tif")]
 
     # Process files in parallel with a progress bar
-    print("Starting resampling process...")
+    logger.info("Starting resampling process...")
     with Pool(processes=cpu_count()) as pool:
         list(
             tqdm(
@@ -117,7 +135,7 @@ def main() -> None:
             )
         )
 
-    print("All tiles have been resampled and saved.")
+    logger.info("All tiles have been resampled and saved.")
 
 
 if __name__ == "__main__":
