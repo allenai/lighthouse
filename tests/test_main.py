@@ -99,12 +99,11 @@ def test_detect_endpoint_ocean_point() -> None:
 def test_detect_endpoint_land_point() -> None:
     """Test the detect endpoint with a point on land."""
     # Kansas coordinates (definitely on land)
-    request_data: Dict[str, float] = {"lat": 39.0997, "lon": -94.5786}
+    request_data: Dict[str, float] = {"lat": 47.654290, "lon": -122.336381}
     response = client.post("/detect", json=request_data)
-
     assert response.status_code == 200
     response_data = response.json()
-    assert response_data["land_cover_class"] != "Permanent water bodies"
+    assert response_data["land_cover_class"] == "Built-up"
 
 
 @pytest.mark.integration

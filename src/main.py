@@ -10,10 +10,10 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 import uvicorn
 from fastapi import FastAPI, HTTPException, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from pipeline import land_water_mapping
-from pipeline import main as pipeline_main
+from .pipeline import land_water_mapping
+from .pipeline import main as pipeline_main
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -63,18 +63,14 @@ class RoundedFloat(float):
 class CoastalDetectionRequest(BaseModel):
     """Request object for coastal detections."""
 
-    lat: float = Field(..., description="Latitude of the point")
-    lon: float = Field(..., description="Longitude of the point")
+    model_config = ConfigDict(strict=True)  # Ensures strict type checking
 
-    class Config:
-        """Example configuration for a request."""
-
-        json_schema_extra = {
-            "example": {
-                "lat": 47.636895,
-                "lon": -122.334984,
-            },
-        }
+    lat: float = Field(
+        ..., description="Latitude of the point", ge=-90, le=90, examples=[47.6369]
+    )
+    lon: float = Field(
+        ..., description="Longitude of the point", ge=-180, le=180, examples=[-122.3350]
+    )
 
 
 class CoastalDetectionResponse(BaseModel):
