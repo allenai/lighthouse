@@ -27,6 +27,8 @@ WORKDIR /src
 
 # Copy the source code
 COPY ./src /src
+COPY ./tests /src/tests
+
 
 # Expose the default FastAPI port
 EXPOSE 8000
