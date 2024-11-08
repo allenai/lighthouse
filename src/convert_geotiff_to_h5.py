@@ -1,4 +1,29 @@
+"""
+GeoTIFF to HDF5 Converter Module.
+
+This module provides functionality to convert GeoTIFF files to HDF5 format while
+preserving geospatial metadata. It includes parallel processing capabilities for
+handling multiple files efficiently.
+
+Key Features:
+    - Converts GeoTIFF files to HDF5 format
+    - Preserves geotransform and CRS information
+    - Maintains band data with compression
+    - Stores boundary information for each tile
+    - Supports parallel processing for multiple files
+    - Creates a bounds dictionary for fast coordinate lookups
+
+Usage:
+    Run as a script to process all GeoTIFF files in a directory:
+    $ python convert_geotiff_to_h5.py
+
+    Or import functions for use in other modules:
+    >>> from convert_geotiff_to_h5 import convert_geotiff_to_h5
+    >>> bounds = convert_geotiff_to_h5('input.tif', 'output_dir')
+"""
+
 import json
+import logging
 import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
@@ -12,12 +37,16 @@ from rasterio.crs import CRS
 from rasterio.transform import Affine
 from tqdm import tqdm
 
+# Configure logging
+logger = logging.getLogger(__name__)
+
 # Type alias for bounds dictionary
 BoundsDict = Dict[str, Dict[str, float]]
 
 
 def convert_geotiff_to_h5(
-    geotiff_path: Union[str, Path], output_dir: Union[str, Path]
+    geotiff_path: Union[str, Path],
+    output_dir: Union[str, Path],
 ) -> BoundsDict:
     """
     Convert a GeoTIFF file to HDF5 format, preserving geotransform and CRS.
@@ -45,9 +74,14 @@ def convert_geotiff_to_h5(
             # Write data to HDF5
             with h5py.File(output_path, "w") as hdf:
                 # Store band data and geotransform
-                hdf.create_dataset("band_data", data=band_data, compression="gzip")
                 hdf.create_dataset(
-                    "geotransform", data=np.array(geotransform).flatten()
+                    "band_data",
+                    data=band_data,
+                    compression="gzip",
+                )
+                hdf.create_dataset(
+                    "geotransform",
+                    data=np.array(geotransform).flatten(),
                 )
                 hdf.attrs["crs"] = crs.to_string()
 
@@ -61,7 +95,7 @@ def convert_geotiff_to_h5(
             }
 
     except Exception as e:
-        print(f"Error processing {geotiff_path}: {e}")
+        logger.error("Error processing %s: %s", geotiff_path, e)
 
     return bounds_info
 
@@ -91,9 +125,18 @@ def process_directory(
         if f.endswith(".tif")
     ]
 
+    logger.info(
+        "Found %d GeoTIFF files to process",
+        len(geotiff_files),
+    )
+
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         futures = {
-            executor.submit(convert_geotiff_to_h5, gt_path, output_dir): gt_path
+            executor.submit(
+                convert_geotiff_to_h5,
+                gt_path,
+                output_dir,
+            ): gt_path
             for gt_path in geotiff_files
         }
 
@@ -110,17 +153,25 @@ def process_directory(
 
 
 if __name__ == "__main__":
+    # Configure logging for command line usage
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
     geotiff_directory = "data/resampled/"
     h5_output_directory = "data/resampled_h5s/"
     num_cores = 150  # Adjust based on available cores
 
     # Process directory and get bounds dictionary
     bounds_dictionary: BoundsDict = process_directory(
-        geotiff_directory, h5_output_directory, num_workers=num_cores
+        geotiff_directory,
+        h5_output_directory,
+        num_workers=num_cores,
     )
 
     # Save bounds dictionary to JSON file for fast lookup
     with open("bounds_dictionary.json", "w") as f:
         json.dump(bounds_dictionary, f)
 
-    print("Conversion completed.")
+    logger.info("Conversion completed")

@@ -1,4 +1,3 @@
-exclude: ais/data/machine_annotations/tsr/standard_rendezvous.csv
 exclude_types: ["*.geojson"]
 ci:
   autofix_prs: false
