@@ -1,17 +1,41 @@
-# litus
-Highly precise and computationally efficient distance-to-shoreline calculations from any point on earth.
 
-# Setup
-Installation requires copying the dataset and then building/running the service.
-Note that this is is ~500 GB
-1. gcloud alpha storage cp -r gs://litus/data/ data/
-2. docker build -t coastal_image_service .
-3. docker run -d \
-  --name coastal_image_service \
-  -p 8000:8000 \
-  -v ~/litus/data:/src/data \
+---
 
-  coastal_image_service
+# Litus
 
+**Litus** (Latin for "beach, shore, or coast") provides highly precise and computationally efficient distance-to-shoreline calculations from any point on Earth.
 
-## Development (In progress)
+---
+
+## Setup
+
+### Installation
+Litus requires copying a global dataset (~500 GB) and then building and running the service.
+
+1. **Copy the Dataset**:
+   ```bash
+   gcloud alpha storage cp -r gs://litus/data/ data/
+   ```
+
+2. **Build the Docker Image**:
+   ```bash
+   docker build -t coastal_image_service .
+   ```
+
+3. **Run the Docker Container**:
+   ```bash
+   docker run -d \
+     --name coastal_image_service \
+     -p 8000:8000 \
+     -v ~/litus/data:/src/data \
+     coastal_image_service
+   ```
+
+---
+
+## Development
+**In progress**
+
+---
+
+This structure should make the instructions clear and easy to follow. Let me know if you need additional details or further organization for the project.
