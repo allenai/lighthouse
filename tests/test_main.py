@@ -1,4 +1,7 @@
-# mypy: ignore-errors
+"""Tests for the Coastal Detection Service."""
+
+from typing import Any, Dict, Set
+
 import pytest
 import requests
 from fastapi.testclient import TestClient
@@ -8,11 +11,11 @@ from src.main import app
 client = TestClient(app)
 
 # Test coordinates (Seattle coordinates)
-TEST_LAT = 47.636895
-TEST_LON = -122.334984
+TEST_LAT: float = 47.636895
+TEST_LON: float = -122.334984
 
 # Expected response structure
-EXPECTED_KEYS = {
+EXPECTED_KEYS: Set[str] = {
     "distance_to_coast_m",
     "land_cover_class",
     "nearest_coastal_point",
@@ -29,12 +32,12 @@ def test_home_endpoint() -> None:
 
 def test_detect_endpoint_valid_request() -> None:
     """Test the detect endpoint with valid coordinates."""
-    request_data = {"lat": TEST_LAT, "lon": TEST_LON}
+    request_data: Dict[str, float] = {"lat": TEST_LAT, "lon": TEST_LON}
     response = client.post("/detect", json=request_data)
 
     assert response.status_code == 200
 
-    response_data = response.json()
+    response_data: Dict[str, Any] = response.json()
     # Check response structure
     assert set(response_data.keys()) == EXPECTED_KEYS
 
@@ -64,7 +67,7 @@ def test_detect_endpoint_invalid_coordinates() -> None:
 def test_detect_endpoint_ocean_point() -> None:
     """Test the detect endpoint with a point in the ocean."""
     # Pacific Ocean coordinates
-    request_data = {"lat": 0, "lon": -160}
+    request_data: Dict[str, float] = {"lat": 0.0, "lon": -160.0}
     response = client.post("/detect", json=request_data)
 
     assert response.status_code == 200
@@ -75,7 +78,7 @@ def test_detect_endpoint_ocean_point() -> None:
 def test_detect_endpoint_land_point() -> None:
     """Test the detect endpoint with a point on land."""
     # Kansas coordinates (definitely on land)
-    request_data = {"lat": 39.0997, "lon": -94.5786}
+    request_data: Dict[str, float] = {"lat": 39.0997, "lon": -94.5786}
     response = client.post("/detect", json=request_data)
 
     assert response.status_code == 200
@@ -86,7 +89,7 @@ def test_detect_endpoint_land_point() -> None:
 @pytest.mark.integration
 def test_live_api_request() -> None:
     """Test the live API endpoint (marked as integration test)."""
-    request_data = {"lat": TEST_LAT, "lon": TEST_LON}
+    request_data: Dict[str, float] = {"lat": TEST_LAT, "lon": TEST_LON}
 
     try:
         response = requests.post(
