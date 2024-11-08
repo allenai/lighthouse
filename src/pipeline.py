@@ -28,8 +28,17 @@ coastal_ball_tree: Optional[BallTree] = None
 ball_tree_cache: Dict[str, BallTree] = {}  # Cache for Ball Trees
 
 # Load the saved bounds dictionary
-with open("bounds_dictionary.json", "r") as f:
-    bounds_dict = json.load(f)
+DATA_DIR = Path(__file__).parent.parent / "data"
+bounds_file = DATA_DIR / "bounds_dictionary.json"
+try:
+    with open(bounds_file, "r") as f:
+        bounds_dict = json.load(f)
+except FileNotFoundError:
+    logger.error(f"Could not find bounds dictionary at {bounds_file}")
+    raise
+except json.JSONDecodeError:
+    logger.error(f"Could not parse bounds dictionary at {bounds_file}")
+    raise
 
 # WorldCover class ID to classification mapping
 land_water_mapping = {
@@ -53,7 +62,12 @@ def initialize_coastal_ball_tree() -> BallTree:
     """Load and initialize the global coastal BallTree."""
     global coastal_ball_tree
     if coastal_ball_tree is None:
-        coastal_ball_tree = joblib.load("coastal_ball_tree.joblib")
+        ball_tree_path = DATA_DIR / "coastal_ball_tree.joblib"
+        try:
+            coastal_ball_tree = joblib.load(str(ball_tree_path))
+        except FileNotFoundError:
+            logger.error(f"Could not find coastal ball tree at {ball_tree_path}")
+            raise
     return coastal_ball_tree
 
 
