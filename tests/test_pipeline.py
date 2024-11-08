@@ -41,7 +41,16 @@ def mock_h5_file() -> MagicMock:
     """Create a mock HDF5 file with test data."""
     mock = MagicMock()
     mock["band_data"] = np.array([[50]])  # Test land class
-    mock["geotransform"] = np.array([0, 1, 0, 0, 0, 1])
+    mock["geotransform"] = np.array(
+        [
+            0.0,  # x-coordinate of upper-left corner
+            0.001,  # pixel width
+            0.0,  # rotation (usually 0)
+            90.0,  # y-coordinate of upper-left corner
+            0.0,  # rotation (usually 0)
+            -0.001,  # pixel height (negative because origin is upper-left)
+        ]
+    )
     return mock
 
 
