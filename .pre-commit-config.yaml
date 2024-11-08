@@ -7,7 +7,7 @@ ci:
   skip: [end-of-file-fixer, equirements-txt-fixer]
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v5.0.0
     hooks:
       - id: check-yaml
       - id: end-of-file-fixer
@@ -20,7 +20,6 @@ repos:
       - id: check-case-conflict
       - id: check-docstring-first
       - id: check-added-large-files
-        exclude: wheels/*
       - id: check-ast
       - id: check-byte-order-marker
       - id: check-executables-have-shebangs
