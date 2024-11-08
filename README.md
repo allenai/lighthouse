@@ -3,7 +3,7 @@
 
 # Litus
 
-**Litus** (Latin for "beach, shore, or coast") provides highly precise and computationally efficient distance-to-shoreline calculations from any point on Earth.
+**Litus** (Latin for "beach, shore, or coast") provides highly precise (10 meters) and fast (~milliseconds) distance-to-shoreline calculations from any point on Earth.
 
 ---
 
@@ -37,5 +37,3 @@ Litus requires copying a global dataset (~500 GB) and then building and running 
 **In progress**
 
 ---
-
-This structure should make the instructions clear and easy to follow. Let me know if you need additional details or further organization for the project.
