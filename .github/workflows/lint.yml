@@ -1,33 +1,33 @@
-name: Lint (type checking, security, code quality, ruff)
+name: Lint
 
 on:
   push:
-    branches:
-      - "main"
+    branches: [ main ]
   pull_request:
-    branches:
-      - "main"
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+    branches: [ main ]
 
 jobs:
-  linting:
+  lint:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-        with:
-          lfs: false
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v4
         with:
-          python-version: 3.12.7
-          pip-version: 24
+          python-version: "3.12"
+          cache: "pip"
 
-      - name: Linting
+      - name: Install dependencies
         run: |
-          pip install pre-commit interrogate
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pre-commit
+
+      - name: Run pre-commit
+        run: |
           pre-commit run --all-files
+
+      - name: Run mypy
+        run: |
+          mypy src/ tests/
