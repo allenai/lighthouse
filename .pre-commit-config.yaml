@@ -65,19 +65,13 @@ repos:
         entry: interrogate
         types: [python]
         args:
-          [
-            --ignore-init-method,
-            --ignore-init-module,
-            -p,
-            -vv,
-            ais,
-            --fail-under=80,
-          ]
+          [--ignore-init-method, --ignore-init-module, -p, -vv, --fail-under=80]
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.2.2 # Ruff version.
     hooks:
       - id: ruff
         args: ["--line-length", "88", "--verbose"]
+      - id: ruff-format
   - repo: https://github.com/hadolint/hadolint
     rev: v2.7.0
     hooks:
@@ -88,11 +82,3 @@ repos:
         types: ["dockerfile"]
         entry: ghcr.io/hadolint/hadolint hadolint
         args: ["--ignore", "DL3008"]
-  - repo: local
-    hooks:
-      - id: convert-list
-        name: Convert List to list (note case)
-        entry: python3 convert_List_to_list.py
-        language: system
-        types: [python] # Ensures it only runs on Python files
-        files: \.py$ # Ensures it only runs on files with a .py extension

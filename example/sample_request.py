@@ -1,13 +1,16 @@
+"""Example request to the FastAPI endpoint."""
+
 import requests
 
 # Define the request data directly in the script
-request_data = {
-    "lat": 47.636895,
-    "lon": -122.334984
-}
+request_data = {"lat": 47.636895, "lon": -122.334984}
 
-# Send the POST request to the FastAPI endpoint
-response = requests.post("http://0.0.0.0:8000/detect", json=request_data)
+# Send the POST request to the FastAPI endpoint with a timeout
+response = requests.post(
+    "http://0.0.0.0:8000/detect",
+    json=request_data,
+    timeout=30,  # Add a 30-second timeout
+)
 
 # Check and print the response
 if response.status_code == 200:
