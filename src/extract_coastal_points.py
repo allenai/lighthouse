@@ -1,35 +1,14 @@
 """
-This script processes Sentinel-2 image files to create maps of distances from coastlines. It uses the ESA WorldCover dataset to identify land and water bodies and then calculates the distances of each pixel from the nearest coastline.
-
-The script consists of various functions, each handling a specific part of the process:
-
-1. `binarize_input_image`: Converts the input image into a binary format, distinguishing between water and land pixels.
-2. `sobel_edges_scipy`: Applies the Sobel edge detection algorithm to identify coastal edges.
-3. `get_geo_arrays`: Retrieves geographic coordinates for coastal pixels.
-4. `get_distance_from_coast`: Calculates the Euclidean distance from each pixel to the nearest coastline using OpenCV's distance transform.
-6. `extract_coastal_coordinates`, `save_coastal_data_to_csv`, `process_and_save_compressed_data`: Helper functions for data extraction, saving, and processing.
-7. `write_coastal_distances_from_sentinel2`: Orchestrates the processing of individual Sentinel-2 images.
-8. `main`: Manages the overall process, handling multiple images in a directory.
-
-The script assumes the existence of several global variables, including paths to input and output directories and a configuration for multiprocessing. It uses concurrent processing to handle multiple images efficiently.
-
-To use this script, ensure that the Sentinel-2 TIFF images are placed in the specified `DATA_IN_DIR` directory. The script will process each image, calculate the coastal distances, and save the results in the `OUT_DIR` directory. Optionally, the script can also save compressed versions of the distance data.
-
-The script is designed to be executed as a standalone program. Run it from the command line, and it will process all the TIFF files in the input directory.
-
-Note: This script requires external libraries like numpy, pandas, OpenCV, PyMuPDF, and GDAL. Ensure these are installed and properly configured before running the script.
 
 """
+
 import concurrent.futures
 import json
 import logging.config
 import os
-import time
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-import cv2
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tqdm
@@ -46,7 +25,7 @@ OUT_DIR = "coastal_data_points"
 
 # Path to the current script file
 current_dir = Path(__file__).resolve().parent.parent
-data_in_dir =  Path("data") / "resampled"
+data_in_dir = Path("data") / "resampled"
 
 # The Path object will automatically handle the parent directory references
 DATA_IN_DIR = str(data_in_dir)
@@ -148,7 +127,6 @@ def get_geo_arrays(
     return lon_array, lat_array
 
 
-
 def digitize_distances(distances: np.ndarray) -> np.ndarray:
     """save space by digitizing distances into integer bins with decreasing precision further from shore"""
     bins = np.concatenate(BINS).flatten()
@@ -180,11 +158,11 @@ def save_coastal_data_to_csv(dictionary: Dict[str, List[float]], out_csv: str) -
             logger.exception("Exception removing csv", exc_info=True)
         raise
 
+
 def write_coastal_distances_from_sentinel2(
     image_path: Path, out_dir: str, save_compressed: bool = False
 ) -> None:
     """Writes coastal distances from Sentinel-2 image."""
-    start_time = time.perf_counter()
     converted = np.array(Image.open(image_path))
     binarized = binarize_input_image(converted)
     # Ensure the binarized image is of type unsigned integer

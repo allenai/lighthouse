@@ -1,43 +1,44 @@
 #!/usr/bin/env python3
 
+import logging
 import os
+import re
 from multiprocessing import Pool, cpu_count
 from pathlib import Path
-import re
+from typing import List, Match, Optional, Pattern
 
-import numpy as np  # Added for numerical operations
+import numpy as np
 import rasterio
+from numpy.typing import NDArray
 from rasterio.windows import Window
 from tqdm import tqdm
 
+# Configure logging
+logger = logging.getLogger(__name__)
+
 # Directory paths
-input_dir = '/home/patrickb/litus/data/ESA_WORLDCOVER/'  # Update to your directory of 3x3-degree GeoTIFFs
-output_dir = '/home/patrickb/litus/data/resampled/'
+input_dir = "/home/patrickb/litus/data/ESA_WORLDCOVER/"
+output_dir = "/home/patrickb/litus/data/resampled/"
 os.makedirs(output_dir, exist_ok=True)
-WATER_VALUE= 80
+WATER_VALUE: int = 80
+
 # Regular expression to extract latitude and longitude
-pattern = re.compile(r"ESA_WorldCover_10m_2021_v200_([NS]\d{2})([EW]\d{3})_Map\.tif")
+pattern: Pattern[str] = re.compile(
+    r"ESA_WorldCover_10m_2021_v200_([NS]\d{2})([EW]\d{3})_Map\.tif"
+)
 
-def split_and_resample(file_path):
-    """Function to split a 3x3 GeoTIFF into nine 1x1 GeoTIFFs and save them."""
+
+def split_and_resample(file_path: str) -> None:
+    """Split a 3x3 GeoTIFF into nine 1x1 GeoTIFFs and save them.
+
+    Args:
+        file_path: Path to the input GeoTIFF file
+    """
     file_name = Path(file_path).name
-    match = pattern.match(file_name)
+    match: Optional[Match[str]] = pattern.match(file_name)
 
     if not match:
-        print(f"Filename does not match expected format: {file_name}")
-        return
-
-    lat_prefix, lon_prefix = match.groups()
-    lat = int(lat_prefix[1:]) * (1 if lat_prefix[0] == "N" else -1)
-    lon = int(lon_prefix[1:]) * (1 if lon_prefix[0] == "E" else -1)
-
-def split_and_resample(file_path):
-    """Function to split a 3x3 GeoTIFF into nine 1x1 GeoTIFFs and save them."""
-    file_name = Path(file_path).name
-    match = pattern.match(file_name)
-
-    if not match:
-        print(f"Filename does not match expected format: {file_name}")
+        logger.warning("Filename does not match expected format: %s", file_name)
         return
 
     lat_prefix, lon_prefix = match.groups()
@@ -59,28 +60,41 @@ def split_and_resample(file_path):
                 transform = src.window_transform(window)
 
                 # Read the data to check for NoData or water-only tiles
-                tile_data = src.read(1, window=window)
+                tile_data: NDArray = src.read(1, window=window)
 
                 # Check if all data is NoData
                 if src.nodata is not None and np.all(tile_data == src.nodata):
-                    print(f"Tile {new_lat}, {new_lon} is all NoData. Skipping.")
-                    continue  # Skip this tile
+                    logger.debug(
+                        "Tile %d, %d is all NoData. Skipping.",
+                        new_lat,
+                        new_lon,
+                    )
+                    continue
 
                 # Check if all valid data is water
-                valid_data = tile_data[tile_data != src.nodata]
+                valid_data: NDArray = tile_data[tile_data != src.nodata]
                 if valid_data.size > 0 and np.all(valid_data == WATER_VALUE):
-                    print(f"Tile {new_lat}, {new_lon} is all water. Skipping.")
-                    continue  # Skip this tile
+                    logger.debug(
+                        "Tile %d, %d is all water. Skipping.",
+                        new_lat,
+                        new_lon,
+                    )
+                    continue
 
                 # Create the new filename
                 lat_prefix_new = "N" if new_lat >= 0 else "S"
                 lon_prefix_new = "E" if new_lon >= 0 else "W"
-                tile_name = f"Ai2_WorldCover_10m_2024_v1_{lat_prefix_new}{abs(new_lat):02d}{lon_prefix_new}{abs(new_lon):03d}_Map.tif"
+                tile_name = (
+                    f"Ai2_WorldCover_10m_2024_v1_"
+                    f"{lat_prefix_new}{abs(new_lat):02d}"
+                    f"{lon_prefix_new}{abs(new_lon):03d}_Map.tif"
+                )
                 output_path = os.path.join(output_dir, tile_name)
 
                 # Write the new 1x1 GeoTIFF
                 with rasterio.open(
-                    output_path, "w",
+                    output_path,
+                    "w",
                     driver="GTiff",
                     height=height,
                     width=width,
@@ -92,24 +106,37 @@ def split_and_resample(file_path):
                     tiled=True,
                     blockxsize=256,
                     blockysize=256,
-                    nodata=src.nodata  # use the same no-data value as the source
+                    nodata=src.nodata,
                 ) as dst:
                     for band in range(1, src.count + 1):
                         dst.write(src.read(band, window=window), band)
 
-    print(f"Resampled and saved 1x1 tiles from {file_name}")
+    logger.info("Resampled and saved 1x1 tiles from %s", file_name)
 
 
-def main():
+def main() -> None:
+    """Process and resample all GeoTIFF files in parallel."""
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
     # Gather all GeoTIFF files in the input directory
-    tif_files = [str(f) for f in Path(input_dir).glob("*.tif")]
+    tif_files: List[str] = [str(f) for f in Path(input_dir).glob("*.tif")]
 
     # Process files in parallel with a progress bar
-    print("Starting resampling process...")
+    logger.info("Starting resampling process...")
     with Pool(processes=cpu_count()) as pool:
-        list(tqdm(pool.imap_unordered(split_and_resample, tif_files), total=len(tif_files)))
+        list(
+            tqdm(
+                pool.imap_unordered(split_and_resample, tif_files),
+                total=len(tif_files),
+            )
+        )
 
-    print("All tiles have been resampled and saved.")
+    logger.info("All tiles have been resampled and saved.")
+
 
 if __name__ == "__main__":
     main()

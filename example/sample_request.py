@@ -1,16 +1,23 @@
+"""Example request to the FastAPI endpoint."""
+
+import logging
+
 import requests
 
-# Define the request data directly in the script
-request_data = {
-    "lat": 47.636895,
-    "lon": -122.334984
-}
+logger = logging.getLogger(__name__)
 
-# Send the POST request to the FastAPI endpoint
-response = requests.post("http://0.0.0.0:8000/detect", json=request_data)
+# Define the request data directly in the script
+request_data = {"lat": 47.636895, "lon": -122.334984}
+
+# Send the POST request to the FastAPI endpoint with a timeout
+response = requests.post(
+    "http://0.0.0.0:8000/detect",
+    json=request_data,
+    timeout=30,  # Add a 30-second timeout
+)
 
 # Check and print the response
 if response.status_code == 200:
-    print("Response from API:", response.json())
+    logger.info("Response from API:", response.json())
 else:
-    print("Error:", response.status_code, response.text)
+    logger.info("Error:", response.status_code, response.text)
