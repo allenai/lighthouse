@@ -8,13 +8,48 @@
 - Docker 24.0 or higher
 - 500GB+ storage space for dataset
 - 4GB+ RAM recommended
----
+- gcloud CLI
+
+### Installing gcloud CLI
+
+#### Debian/Ubuntu
+```bash
+# Add the Cloud SDK distribution URI as a package source
+echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+
+# Import the Google Cloud public key
+curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
+
+# Update and install the Cloud SDK
+sudo apt-get update && sudo apt-get install google-cloud-cli
+```
+
+#### macOS
+```bash
+# Using Homebrew
+brew install --cask google-cloud-sdk
+```
+
+#### Windows
+1. Download the [Google Cloud SDK installer](https://dl.google.com/dl/cloudsdk/channels/rapid/GoogleCloudSDKInstaller.exe)
+2. Launch the installer and follow the prompts
+
+### Authenticate gcloud
+```bash
+# Login to your Google Cloud account
+gcloud auth login
+
+# Set your project (if needed)
+gcloud config set project YOUR_PROJECT_ID
+```
 
 ## Setup
 ### Download the dataset from GCP
+Required gcloud installation
+
 ```bash
 # Create data directory
-mkdir -p data
+mkdir -p path/to/data
 
 # Copy data from GCS bucket (requires gcloud authentication)
 gcloud alpha storage cp -r gs://litus/data/ path/to/data
