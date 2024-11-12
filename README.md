@@ -11,25 +11,81 @@
 ---
 
 ## Setup
+### Download the dataset from GCP
+```bash
+# Create data directory
+mkdir -p data
+
+# Copy data from GCS bucket (requires gcloud authentication)
+gcloud alpha storage cp -r gs://litus/data/ path/to/data
+```
 
 ### Installation
-Litus requires copying a global dataset (~500 GB) and then building and running the service.
 
-1. **Copy the Dataset**:
+There are two ways to install and run Litus:
+
+#### Option 1: Using Pre-built Image (Recommended)
+
+1. **Pull the Docker Image**:
+   ```bash
+   docker pull ghcr.io/allenai/litus:sha-30b4d50
+   ```
+
+2. **Run the Docker Container**:
+   ```bash
+   docker run -d \
+     --name coastal_image_service \
+     -p 8000:8000 \
+     -v path/to/data:/src/data \ # see above for datapath
+     ghcr.io/allenai/litus:sha-30b4d50
+   ```
+
+### Example
+See:
+   ```bash
+   python example/sample_request.py
+   ```
+or:
+   ```bash
+   curl -X POST "http://0.0.0.0:8000/detect" \
+    -H "Content-Type: application/json" \
+    -d '{"lat": 47.636895, "lon": -122.334984}'
+   ```
+
+expected output is:
+```json
+{
+  "distance_to_coast_m": 275,
+  "land_cover_class": "Permanent water bodies",
+  "nearest_coastal_point": [47.63742, -122.33858],
+  "version": "2024-11-12T00:25:16.667195"
+}
+```
+
+
+#### Option 2: Building from Source
+
+1. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/allenai/litus.git
+   cd litus
+   ```
+
+2. **Copy the Dataset** (~500 GB):
    ```bash
    # Create data directory
    mkdir -p data
 
    # Copy data from GCS bucket (requires gcloud authentication)
-   gcloud alpha storage cp -r gs://litus/data/ data/
+   gcloud alpha storage cp -r gs://litus/data/ path/to/data
    ```
 
-2. **Build the Docker Image**:
+3. **Build the Docker Image**:
    ```bash
    docker build -t coastal_image_service .
    ```
 
-3. **Run the Docker Container**:
+4. **Run the Docker Container**:
    ```bash
    docker run -d \
      --name coastal_image_service \
@@ -37,6 +93,15 @@ Litus requires copying a global dataset (~500 GB) and then building and running 
      -v ~/litus/data:/src/data \
      coastal_image_service
    ```
+
+### Verifying Installation
+
+Once running, you can verify the service is working by accessing:
+```bash
+curl http://localhost:8000/health
+```
+
+The service should return a 200 OK response.
 
 ---
 
