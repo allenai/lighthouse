@@ -86,14 +86,29 @@ def coord_to_coastal_point(lat: float, lon: float) -> Tuple[NDArray[np.float64],
 def get_filename_for_coordinates(
     lat: float, lon: float, bounds_dict: Dict[str, Dict[str, float]]
 ) -> Optional[str]:
-    """Get filename of HDF5 file containing the given coordinates."""
+    """
+    Get the filename of the HDF5 file containing the given coordinates.
+    Adds a small buffer to bounds to handle edge cases where coordinates are
+    exactly on the boundary.
+    """
+    boundary_buffer = 1e-5  # Small buffer to handle edge coordinates
+
     for filename, bounds in bounds_dict.items():
-        if (
-            bounds["latmin"] <= lat < bounds["latmax"]
-            and bounds["lonmin"] <= lon < bounds["lonmax"]
-        ):
+        # Adjust bounds by the buffer
+        latmin, latmax = (
+            bounds["latmin"] - boundary_buffer,
+            bounds["latmax"] + boundary_buffer,
+        )
+        lonmin, lonmax = (
+            bounds["lonmin"] - boundary_buffer,
+            bounds["lonmax"] + boundary_buffer,
+        )
+
+        # Check if the coordinate is within the adjusted bounds
+        if latmin <= lat <= latmax and lonmin <= lon <= lonmax:
             logger.debug("Found matching file: %s with bounds %s", filename, bounds)
             return filename
+
     logger.debug("No matching file found for coordinates (%f, %f)", lat, lon)
     return None
 

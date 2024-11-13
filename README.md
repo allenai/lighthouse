@@ -8,7 +8,7 @@
 - Docker 24.0 or higher
 - 500GB+ storage space for dataset
 - 4GB+ RAM recommended
-- gcloud CLI
+- gcloud CLI (for downloading dataset from GCP)
 
 ### Installing gcloud CLI
 
@@ -30,9 +30,6 @@ sudo apt-get update && sudo apt-get install google-cloud-cli
 brew install --cask google-cloud-sdk
 ```
 
-#### Windows
-1. Download the [Google Cloud SDK installer](https://dl.google.com/dl/cloudsdk/channels/rapid/GoogleCloudSDKInstaller.exe)
-2. Launch the installer and follow the prompts
 
 ### Authenticate gcloud
 ```bash
