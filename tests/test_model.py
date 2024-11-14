@@ -1,8 +1,10 @@
 """Parameterized unit tests for the pipeline module using only coordinates."""
 
+import os
+
 import numpy as np
 import pytest
-import os
+
 from src.pipeline import main
 
 # Define parameterized test cases with coordinates and expected results
@@ -15,8 +17,9 @@ TEST_CASES = [
     (82.348767, -54.057979, 7841, 80),
     (-69.716681, -0.785526, 11881, 1),
     (-70.667115, -0.603568, 63637, 1),
-    (-83.762443, 25.924445, 1156189, 1)
+    (-83.762443, 25.924445, 1156189, 1),
 ]
+
 
 @pytest.mark.skipif(
     os.getenv("GITHUB_ACTIONS") == "true", reason="Skipped on GitHub Actions runner"
