@@ -113,17 +113,21 @@ def test_main_with_different_locations(
 def test_edge_cases() -> None:
     """Test edge cases for coordinate validation."""
     # Test invalid coordinates
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r".*Latitude.*outside valid range.*"):
         main(91.0, 0.0)  # Invalid latitude
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r".*Latitude.*outside valid range.*"):
+        main(-91.0, 0.0)  # Invalid negative latitude
+    with pytest.raises(ValueError, match=r".*Longitude.*outside valid range.*"):
         main(0.0, 181.0)  # Invalid longitude
+    with pytest.raises(ValueError, match=r".*Longitude.*outside valid range.*"):
+        main(0.0, -181.0)  # Invalid negative longitude
 
-    # Test boundary values
-    try:
+    # Test boundary values (these should not raise errors)
+    with patch("src.pipeline.get_filename_for_coordinates") as mock_get_filename:
+        mock_get_filename.return_value = None  # Simulate ocean point
         main(90.0, 180.0)  # Maximum valid values
         main(-90.0, -180.0)  # Minimum valid values
-    except ValueError:
-        pytest.fail("Valid boundary coordinates raised ValueError")
+        main(0.0, 0.0)  # Zero values
 
 
 def test_initialize_coastal_ball_tree(mock_ball_tree: BallTree) -> None:

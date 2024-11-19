@@ -154,8 +154,42 @@ def ball_tree_distance(
     return distance_m, nearest_point
 
 
+def validate_coordinates(lat: float, lon: float) -> None:
+    """
+    Validate latitude and longitude coordinates.
+
+    Args:
+        lat: Latitude value to validate
+        lon: Longitude value to validate
+
+    Raises:
+        ValueError: If coordinates are outside valid ranges
+    """
+    if not -90 <= lat <= 90:
+        raise ValueError(f"Latitude {lat} is outside valid range [-90, 90]")
+    if not -180 <= lon <= 180:
+        raise ValueError(f"Longitude {lon} is outside valid range [-180, 180]")
+
+
 def main(lat: float, lon: float) -> Tuple[float, int, NDArray[np.float64]]:
-    """Process coordinates and return coastal information."""
+    """Process coordinates and return coastal information.
+
+    Args:
+        lat: Latitude of the query point
+        lon: Longitude of the query point
+
+    Returns:
+        Tuple containing:
+        - distance_m: Distance to nearest coastal point in meters
+        - land_class: Integer representing land cover class
+        - nearest_point: Coordinates of nearest coastal point
+
+    Raises:
+        ValueError: If coordinates are invalid
+    """
+    # Validate coordinates first
+    validate_coordinates(lat, lon)
+
     filename_h5 = get_filename_for_coordinates(lat, lon, bounds_dict)
 
     if filename_h5:
