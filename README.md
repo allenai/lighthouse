@@ -41,7 +41,12 @@ gcloud config set project YOUR_PROJECT_ID
 ```
 
 ## Setup
-### Download the dataset from GCP
+### Download the data
+There are two required dataset for online inference.
+1. The balltrees storing the coastal points at each 1x1 tile
+2. The h5 files storing the land cover class at each 1x1 tile
+Both are provided in the same location and can be downloaded with the following commands.
+
 Required gcloud installation
 
 ```bash
@@ -206,6 +211,9 @@ pytest tests/
 ---
 
 ## License
+### Code
 Apache 2.0
 
----
+### Dataset
+This dataset is made available under the Open Database License: http://opendatacommons.org/licenses/odbl/1.0/. Any rights in individual contents of the database are licensed under the Database Contents License: http://opendatacommons.org/licenses/dbcl/1.0/
+Note that only a portion of the dataset is available in this repo (example). The dataset must be downloaded from GCP/HF.
