@@ -13,6 +13,7 @@ from src.pipeline import (
     get_filename_for_coordinates,
     h5_to_integer,
     initialize_coastal_ball_tree,
+    land_water_mapping,
     main,
 )
 
@@ -27,6 +28,15 @@ TEST_BOUNDS_DICT = {
         "lonmax": -122.0,
     }
 }
+
+# Additional test cases for different scenarios
+TEST_CASES = [
+    # Format: (lat, lon, expected_land_class, description)
+    (47.636895, -122.334984, 50, "Seattle downtown (built-up)"),
+    (47.654290, -122.336381, 50, "Space Needle (built-up)"),
+    (0.0, -160.0, 0, "Pacific Ocean (water)"),
+    (47.6372, -122.3387, 50, "Pike Place Market (built-up)"),
+]
 
 
 @pytest.fixture
@@ -52,6 +62,68 @@ def mock_h5_file() -> MagicMock:
         ]
     )
     return mock
+
+
+def test_land_water_mapping_completeness() -> None:
+    """Test that land_water_mapping contains all expected classes."""
+    expected_classes = {0, 1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 100}
+    assert set(land_water_mapping.keys()) == expected_classes
+
+
+def test_land_water_mapping_values() -> None:
+    """Test specific values in land_water_mapping."""
+    assert land_water_mapping[0] == "Permanent water bodies"
+    assert land_water_mapping[50] == "Built-up"
+    assert land_water_mapping[10] == "Tree cover"
+
+
+@pytest.mark.parametrize(
+    "lat,lon,expected_class,description",
+    TEST_CASES,
+    ids=lambda x: x[3] if isinstance(x, tuple) else str(x),
+)
+def test_main_with_different_locations(
+    lat: float,
+    lon: float,
+    expected_class: int,
+    description: str,
+    mock_ball_tree: BallTree,
+) -> None:
+    """Test main function with different geographic locations."""
+    with patch(
+        "src.pipeline.get_filename_for_coordinates",
+        return_value="test.h5",
+    ), patch(
+        "src.pipeline.h5_to_integer",
+        return_value=expected_class,
+    ), patch(
+        "src.pipeline.get_ball_tree",
+        return_value=mock_ball_tree,
+    ), patch(
+        "src.pipeline.ball_tree_distance",
+        return_value=(100.0, np.array([lat, lon])),
+    ):
+        distance_m, land_class, nearest_point = main(lat, lon)
+        assert isinstance(distance_m, float)
+        assert land_class == expected_class
+        assert isinstance(nearest_point, np.ndarray)
+        assert len(nearest_point) == 2
+
+
+def test_edge_cases() -> None:
+    """Test edge cases for coordinate validation."""
+    # Test invalid coordinates
+    with pytest.raises(ValueError):
+        main(91.0, 0.0)  # Invalid latitude
+    with pytest.raises(ValueError):
+        main(0.0, 181.0)  # Invalid longitude
+
+    # Test boundary values
+    try:
+        main(90.0, 180.0)  # Maximum valid values
+        main(-90.0, -180.0)  # Minimum valid values
+    except ValueError:
+        pytest.fail("Valid boundary coordinates raised ValueError")
 
 
 def test_initialize_coastal_ball_tree(mock_ball_tree: BallTree) -> None:

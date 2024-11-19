@@ -3,7 +3,8 @@ Pipeline module for coastal distance and land cover classification.
 
 This module provides functionality to:
 1. Find the nearest coastal point to any given coordinates
-2. Determine land cover classification for a location
+2. Determine land cover classification for a location. These are provided by either
+ESA or OSM.
 3. Calculate distances to coastlines using BallTree structures
 """
 

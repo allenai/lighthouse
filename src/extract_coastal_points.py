@@ -23,7 +23,6 @@ NUM_PROCESSES = 1 if (os.cpu_count() or 4) == 2 else max(1, (os.cpu_count() or 4
 
 OUT_DIR = "coastal_data_points"
 
-# Path to the current script file
 current_dir = Path(__file__).resolve().parent.parent
 data_in_dir = Path("data") / "resampled"
 

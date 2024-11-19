@@ -84,6 +84,7 @@ osmnx==1.9.4
 overpass==0.7
 packaging==24.1
 pandas==2.2.3
+pandera==0.21.0
 parso==0.8.4
 pexpect==4.9.0
 pillow==11.0.0

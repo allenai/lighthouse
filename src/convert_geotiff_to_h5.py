@@ -13,18 +13,23 @@ Key Features:
     - Supports parallel processing for multiple files
     - Creates a bounds dictionary for fast coordinate lookups
 
-Usage:
-    Run as a script to process all GeoTIFF files in a directory:
-    $ python convert_geotiff_to_h5.py
+Directory Structure Assumptions:
+    The module expects the following directory structure:
+    project_root/
+    ├── data/
+    │   ├── resampled/           # Input GeoTIFF files
+    │   ├── resampled_h5s/       # Output HDF5 files
+    │   └── bounds_dictionary.json
+    └── src/
+        └── convert_geotiff_to_h5.py
 
-    Or import functions for use in other modules:
-    >>> from convert_geotiff_to_h5 import convert_geotiff_to_h5
-    >>> bounds = convert_geotiff_to_h5('input.tif', 'output_dir')
+    Input GeoTIFFs should be in data/resampled/
+    Output HDF5s will be saved to data/resampled_h5s/
+    Bounds dictionary will be saved to data/bounds_dictionary.json
 """
 
 import json
 import logging
-import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Dict, List, Union
@@ -37,11 +42,18 @@ from rasterio.crs import CRS
 from rasterio.transform import Affine
 from tqdm import tqdm
 
+from utils.log_utils import configure_logging
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
 # Type alias for bounds dictionary
 BoundsDict = Dict[str, Dict[str, float]]
+
+# Define paths relative to script location
+ROOT_DIR = Path(__file__).resolve().parent.parent
+geotiff_directory = ROOT_DIR / "data" / "resampled"
+h5_output_directory = ROOT_DIR / "data" / "resampled_h5s"
 
 
 def convert_geotiff_to_h5(
@@ -116,14 +128,10 @@ def process_directory(
     Returns:
         A dictionary with bounds for each processed file
     """
-    os.makedirs(output_dir, exist_ok=True)
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
     bounds_dict: BoundsDict = {}
 
-    geotiff_files: List[str] = [
-        os.path.join(geotiff_dir, f)
-        for f in os.listdir(geotiff_dir)
-        if f.endswith(".tif")
-    ]
+    geotiff_files: List[str] = [str(f) for f in Path(geotiff_dir).glob("*.tif")]
 
     logger.info(
         "Found %d GeoTIFF files to process",
@@ -153,25 +161,19 @@ def process_directory(
 
 
 if __name__ == "__main__":
-    # Configure logging for command line usage
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
-
-    geotiff_directory = "data/resampled/"
-    h5_output_directory = "data/resampled_h5s/"
-    num_cores = 150  # Adjust based on available cores
+    # Configure logging using shared utility
+    configure_logging()
 
     # Process directory and get bounds dictionary
     bounds_dictionary: BoundsDict = process_directory(
         geotiff_directory,
         h5_output_directory,
-        num_workers=num_cores,
+        num_workers=150,  # Adjust based on available cores
     )
 
     # Save bounds dictionary to JSON file for fast lookup
-    with open("bounds_dictionary.json", "w") as f:
+    bounds_file = ROOT_DIR / "data" / "bounds_dictionary.json"
+    with open(bounds_file, "w") as f:
         json.dump(bounds_dictionary, f)
 
     logger.info("Conversion completed")

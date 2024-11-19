@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import logging
-import os
 import re
 from multiprocessing import Pool, cpu_count
 from pathlib import Path
@@ -13,13 +12,16 @@ from numpy.typing import NDArray
 from rasterio.windows import Window
 from tqdm import tqdm
 
+from utils.log_utils import configure_logging
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
 # Directory paths
-input_dir = "/home/patrickb/litus/data/ESA_WORLDCOVER/"
-output_dir = "/home/patrickb/litus/data/resampled/"
-os.makedirs(output_dir, exist_ok=True)
+ROOT_DIR = Path(__file__).resolve().parent.parent
+input_dir = ROOT_DIR / "data" / "ESA_WORLDCOVER"
+output_dir = ROOT_DIR / "data" / "resampled"
+output_dir.mkdir(parents=True, exist_ok=True)
 WATER_VALUE: int = 80
 
 # Regular expression to extract latitude and longitude
@@ -89,7 +91,7 @@ def split_and_resample(file_path: str) -> None:
                     f"{lat_prefix_new}{abs(new_lat):02d}"
                     f"{lon_prefix_new}{abs(new_lon):03d}_Map.tif"
                 )
-                output_path = os.path.join(output_dir, tile_name)
+                output_path = output_dir / tile_name
 
                 # Write the new 1x1 GeoTIFF
                 with rasterio.open(
@@ -116,11 +118,8 @@ def split_and_resample(file_path: str) -> None:
 
 def main() -> None:
     """Process and resample all GeoTIFF files in parallel."""
-    # Configure logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
+    # Configure logging using shared utility
+    configure_logging()
 
     # Gather all GeoTIFF files in the input directory
     tif_files: List[str] = [str(f) for f in Path(input_dir).glob("*.tif")]
