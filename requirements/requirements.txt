@@ -48,6 +48,7 @@ h3==4.1.1
 h3ronpy==0.21.1
 h5py==3.12.1
 haversine==2.8.1
+httpx==0.27.2
 identify==2.6.1
 idna==3.10
 ipykernel==6.29.5
@@ -83,6 +84,7 @@ osmnx==1.9.4
 overpass==0.7
 packaging==24.1
 pandas==2.2.3
+pandera==0.21.0
 parso==0.8.4
 pexpect==4.9.0
 pillow==11.0.0
@@ -108,6 +110,7 @@ pyogrio==0.10.0
 pyparsing==3.2.0
 pyproj==3.7.0
 pyshp==2.3.1
+pytest==8.3.3
 python-dateutil==2.9.0.post0
 pytz==2024.2
 PyYAML==6.0.2

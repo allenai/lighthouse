@@ -1,19 +1,22 @@
-# Use Python 3.12 Alpine image
-FROM python:3.12-alpine
+# Use an official Python runtime as a parent image
+FROM python:3.12-slim
 
-# Install necessary packages for FastAPI and data processing
-RUN apk update && apk add --no-cache \
-    ffmpeg \
-    libsm \
-    libxext \
-    hdf5-dev \
-    netcdf \
-    libnetcdf \
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONPATH=/src
+
+# Install system dependencies for GDAL and other geospatial libraries
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gdal-bin \
+    libgdal-dev \
+    libproj-dev \
+    libgeos-dev \
     gcc \
     g++ \
-    musl-dev \
-    make \
-    && rm -rf /var/cache/apk/*
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements to leverage Docker cache if requirements haven't changed
 COPY requirements/requirements.txt /tmp/requirements.txt
@@ -26,9 +29,15 @@ WORKDIR /src
 
 # Copy the source code
 COPY ./src /src
+COPY ./tests/ tests/
+
+# copy these two files for CI and unit/integration test
+COPY ./data/ball_trees/Ai2_WorldCover_10m_2024_v1_N47W123_Map_coastal_points_ball_tree.joblib /data/ball_trees/
+COPY ./data/resampled_h5s/Ai2_WorldCover_10m_2024_v1_N47W123_Map.h5 /data/resampled_h5s/
 
 # Expose the default FastAPI port
 EXPOSE 8000
 
 # Specify the default command to run
 CMD ["python", "main.py"]
+# Set work directory

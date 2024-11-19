@@ -1,0 +1,11 @@
+[tool.bandit]
+exclude_dirs = ["tests", "venv", ".venv"]
+skips = ["B101"]  # optional: skip assert statements
+
+[tool.bandit.assert_used]
+skips = ["*_test.py", "test_*.py"]
+
+[tool.pytest.ini_options]
+pythonpath = [
+    "."
+]
