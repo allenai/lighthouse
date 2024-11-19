@@ -1,95 +1,48 @@
-# Litus
+# Litus: High-Precision Coastal Distance Calculator
 
-**Litus** (Latin for "beach, shore, or coast") provides highly precise (10 meters) and fast (~milliseconds) distance-to-shoreline calculations from any point on Earth (on land or on the high seas).
+**Litus** (Latin for "beach, shore, or coast") provides highly precise (10m resolution) and fast (~milliseconds) distance-to-shoreline calculations from any point on Earth, whether on land or at sea, to any permanent water body.
 
-## Requirements
+## Overview
 
-### System Requirements
-- Docker 24.0 or higher
-- 500GB+ storage space for dataset
-- 4GB+ RAM recommended
-- gcloud CLI (for downloading dataset from GCP)
+Litus combines two datasets.
+- [ESA WorldCover 2021](https://esa-worldcover.org/en): 10m resolution global land cover data
+- [OpenStreetMap](https://www.openstreetmap.org) coastline data
 
-### Installing gcloud CLI
+Key Features:
+- 10-meter resolution land/water classification
+- Sub-second distance-to-coast calculations
+- Global coverage
+- Accurate coastal point identification
 
-#### Debian/Ubuntu
-```bash
-# Add the Cloud SDK distribution URI as a package source
-echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+For an explanation of why we chose these two datasets, please see the paper.
 
-# Import the Google Cloud public key
-curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
-
-# Update and install the Cloud SDK
-sudo apt-get update && sudo apt-get install google-cloud-cli
-```
-
-#### macOS
-```bash
-# Using Homebrew
-brew install --cask google-cloud-sdk
-```
-
-
-### Authenticate gcloud
-```bash
-# Login to your Google Cloud account
-gcloud auth login
-
-# Set your project (if needed)
-gcloud config set project YOUR_PROJECT_ID
-```
-
-## Setup
-### Download the data
-There are two required dataset for online inference.
-1. The balltrees storing the coastal points at each 1x1 tile
-2. The h5 files storing the land cover class at each 1x1 tile
-Both are provided in the same location and can be downloaded with the following commands.
-
-Required gcloud installation
+## Quick Start
 
 ```bash
-# Create data directory
-mkdir -p path/to/data
-
-# Copy data from GCS bucket (requires gcloud authentication)
-gcloud alpha storage cp -r gs://litus/data/ path/to/data
+# Pull and run the pre-built image
+docker pull ghcr.io/allenai/litus:sha-30b4d50
+docker run -d \
+  --name litus \
+  -p 8000:8000 \
+  -v path/to/data:/src/data \
+  ghcr.io/allenai/litus:sha-30b4d50
 ```
 
-### Installation
+## Example Usage
 
-There are two ways to install and run Litus:
+```python
+import requests
 
-#### Option 1: Using Pre-built Image (Recommended)
+response = requests.post(
+    "http://localhost:8000/detect",
+    json={"lat": 47.636895, "lon": -122.334984},
+    timeout=30
+)
 
-1. **Pull the Docker Image**:
-   ```bash
-   docker pull ghcr.io/allenai/litus:sha-30b4d50
-   ```
+print(response.json())
+```
 
-2. **Run the Docker Container**:
-   ```bash
-   docker run -d \
-     --name coastal_image_service \
-     -p 8000:8000 \
-     -v path/to/data:/src/data \ # see above for datapath
-     ghcr.io/allenai/litus:sha-30b4d50
-   ```
-
-### Example
-See:
-   ```bash
-   python example/sample_request.py
-   ```
-or:
-   ```bash
-   curl -X POST "http://0.0.0.0:8000/detect" \
-    -H "Content-Type: application/json" \
-    -d '{"lat": 47.636895, "lon": -122.334984}'
-   ```
-
-expected output is:
+Expected output:
 ```json
 {
   "distance_to_coast_m": 275,
@@ -99,121 +52,172 @@ expected output is:
 }
 ```
 
+## Installation
 
-#### Option 2: Building from Source
+### Prerequisites
+- Docker 24.0+
+- 500GB storage space
+- 4GB RAM
+- gcloud CLI (for dataset download)
 
-1. **Clone the Repository**:
+### Dataset Download
+
+1. Install gcloud CLI:
+   <details>
+   <summary>Debian/Ubuntu</summary>
+
    ```bash
-   git clone https://github.com/allenai/litus.git
-   cd litus
+   echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] \
+     https://packages.cloud.google.com/apt cloud-sdk main" | \
+     sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+
+   curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | \
+     sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
+
+   sudo apt-get update && sudo apt-get install google-cloud-cli
+   ```
+   </details>
+
+   <details>
+   <summary>macOS</summary>
+
+   ```bash
+   brew install --cask google-cloud-sdk
+   ```
+   </details>
+
+2. Authenticate:
+   ```bash
+   gcloud auth login
    ```
 
-2. **Copy the Dataset** (~500 GB):
+3. Download dataset:
    ```bash
-   # Create data directory
    mkdir -p data
-
-   # Copy data from GCS bucket (requires gcloud authentication)
-   gcloud alpha storage cp -r gs://litus/data/ path/to/data
+   gcloud alpha storage cp -r gs://litus/data/ data/
    ```
 
-3. **Build the Docker Image**:
-   ```bash
-   docker build -t coastal_image_service .
-   ```
+### Deployment Options
 
-4. **Run the Docker Container**:
-   ```bash
-   docker run -d \
-     --name coastal_image_service \
-     -p 8000:8000 \
-     -v ~/litus/data:/src/data \
-     coastal_image_service
-   ```
-
-### Verifying Installation
-
-Once running, you can verify the service is working by accessing:
+#### Option 1: Pre-built Image (Recommended)
 ```bash
-curl http://localhost:8000/health
+docker pull ghcr.io/allenai/litus:sha-30b4d50
+docker run -d \
+  --name litus \
+  -p 8000:8000 \
+  -v path/to/data:/src/data \
+  ghcr.io/allenai/litus:sha-30b4d50
 ```
 
-The service should return a 200 OK response.
-
----
+#### Option 2: Build from Source
+```bash
+git clone https://github.com/allenai/litus.git
+cd litus
+docker build -t litus .
+docker run -d \
+  --name litus \
+  -p 8000:8000 \
+  -v path/to/data:/src/data \
+  litus
+```
 
 ## Development
-(in progress)
 
-### Local Development Setup
-1. Create a virtual environment:
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # Linux/macOS
-   # or
-   .venv\Scripts\activate  # Windows
-   ```
+### Local Setup
+```bash
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate
 
-2. Install development dependencies:
-   ```bash
-   pip install -r requirements/requirements.txt
-   ```
+# Install dependencies
+pip install -r requirements/requirements.txt
+pip install -r requirements/requirements-dev.txt
 
-3. Install pre-commit hooks:
-   ```bash
-   pre-commit install
-   ```
+# Install pre-commit hooks
+pre-commit install
+```
 
 ### Running Tests
 ```bash
 pytest tests/
 ```
 
-### Code Conventions
-- Black for code formatting
+### Code Quality
+- Black for formatting
 - Ruff for linting
 - MyPy for type checking
 - Pre-commit hooks for automated checks
 
 ### Building Dataset from Scratch
-1. Download worldcover from European Space Agency:
+
+<details>
+<summary>Click to expand</summary>
+
+1. Download ESA WorldCover data:
    ```bash
    bash src/download_worldcover.sh
    ```
 
-2. Download land polygons from OpenStreetMap:
+2. Download OSM land polygons:
    ```bash
    wget -P data/osm \
      https://osmdata.openstreetmap.de/download/land-polygons-split-4326.zip
    unzip data/osm/land-polygons-split-4326.zip -d data/osm
    ```
 
-3. Generate the land-sea geotiffs:
+3. Process data:
    ```bash
    python src/gen_all_missing_tiles.py
-   ```
-
-4. Convert GeoTIFFs to HDF5:
-   ```bash
    python src/convert_geotiff_to_h5.py
-   ```
-
-5. Extract coastal points:
-   ```bash
    python src/extract_coastal_points.py
-   ```
-
-6. Convert coastal points to BallTrees:
-   ```bash
    python src/convert_coastal_points_to_ball_trees.py
    ```
-
----
+</details>
 
 ## License
+
 ### Code
 Apache 2.0
 
-### Dataset
-This dataset is made available under the Open Database License: http://opendatacommons.org/licenses/odbl/1.0/. Any rights in individual contents of the database are licensed under the Database Contents License: http://opendatacommons.org/licenses/dbcl/1.0/
-Note that only a portion of the dataset is available in this repo (example). The dataset must be downloaded from GCP/HF.
+### Dataset:
+- License: Open Database License (ODbL) v1.0
+  - http://opendatacommons.org/licenses/odbl/1.0/
+  - http://opendatacommons.org/licenses/dbcl/1.0/
+
+## References
+### ESA WorldCover 2021
+- Source: https://esa-worldcover.org/en
+- Citation:
+```bibtex
+@article{zanaga2021esa,
+  title={ESA WorldCover 10 m 2021 v200},
+  author={Zanaga, D and Van De Kerchove, R and De Keersmaecker, W and Souverijns, N and Brockmann, C and Quast, R and Wevers, J and Grosu, A and Paccini, A and Vergnaud, S and others},
+  year={2021},
+  publisher={ESA},
+  doi={10.5281/zenodo.5571936}
+}
+```
+
+### OpenStreetMap
+- Source: https://www.openstreetmap.org
+- We used the land polygon data to generate the land-sea masks: https://osmdata.openstreetmap.de/data/land-polygons.html
+
+## Acknowledgments
+
+We gratefully acknowledge:
+- The European Space Agency (ESA) for providing the WorldCover 2021 dataset
+- The OpenStreetMap community for their invaluable contributions to global mapping
+- The Allen Institute for AI for supporting this project
+
+## Citation
+
+If you use Litus, please cite:
+```bibtex
+@software{litus2024,
+  title = {Litus: High-Precision Coastal Distance Calculator},
+  author = {{Allen Institute for AI}},
+  year = {2024},
+  url = {https://github.com/allenai/litus},
+  note = {Uses ESA WorldCover 2021 and OpenStreetMap data}
+}
+```
