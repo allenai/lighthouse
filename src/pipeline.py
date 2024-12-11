@@ -13,7 +13,7 @@ import logging
 import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-
+import os
 import h5py
 import joblib
 import numpy as np
@@ -115,7 +115,7 @@ def get_filename_for_coordinates(
     return None
 
 
-@lru_cache(maxsize=10)
+@lru_cache(maxsize=int(os.getenv("LITUS_BALL_TREE_CACHE_MAXSIZE", 10)))
 def get_ball_tree(filename_ball_tree: str) -> BallTree:
     """Load a BallTree from a joblib file for a specific region.
 
