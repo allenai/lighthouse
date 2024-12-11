@@ -20,6 +20,7 @@ import numpy as np
 import rasterio.transform
 from numpy.typing import NDArray
 from sklearn.neighbors import BallTree
+from functools import lru_cache
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -114,8 +115,13 @@ def get_filename_for_coordinates(
     return None
 
 
+@lru_cache(maxsize=10)
 def get_ball_tree(filename_ball_tree: str) -> BallTree:
-    """Load a BallTree from a joblib file for a specific region."""
+    """Load a BallTree from a joblib file for a specific region.
+
+    The function is cached using LRU cache with a maximum size of 10 entries
+    to avoid reloading frequently used BallTrees from disk.
+    """
     filename = (
         Path(__file__).resolve().parent.parent
         / "data"
