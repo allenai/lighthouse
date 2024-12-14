@@ -6,13 +6,12 @@ import logging.config
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, AsyncIterator, Dict, List, Optional, Union
+from typing import AsyncIterator, Dict, List, Union
 
 import numpy as np
 import uvicorn
 from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel, Field, ConfigDict, model_validator
-from typing import Union, List
 
 from pipeline import land_water_mapping
 from pipeline import main as pipeline_main
@@ -40,7 +39,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(lifespan=lifespan)
 
 
-class CoastalDetectionRequest(BaseModel):
+class CoastalRequest(BaseModel):
     """Request object for coastal detections.
 
     If batch_mode is False, lat and lon should be single floats.
@@ -53,32 +52,47 @@ class CoastalDetectionRequest(BaseModel):
         default=False, description="Enable batch mode for multiple coordinates."
     )
     lat: Union[float, List[float]] = Field(
-        ...,
-        description="Latitude(s) of the point(s)",
+        ..., description="Latitude(s) of the point(s)"
     )
     lon: Union[float, List[float]] = Field(
-        ...,
-        description="Longitude(s) of the point(s)",
+        ..., description="Longitude(s) of the point(s)"
     )
 
-    @model_validator(mode='after')
-    def check_lat_lon(cls, values: 'CoastalDetectionRequest') -> 'CoastalDetectionRequest':
-        """Validate that lat/lon match the batch_mode."""
-        if values.batch_mode:
-            # batch_mode = True, lat and lon must be lists
-            if not isinstance(values.lat, list) or not isinstance(values.lon, list):
-                raise ValueError("lat and lon must be lists when batch_mode is True")
-            if len(values.lat) != len(values.lon):
-                raise ValueError("lat and lon must have the same length when batch_mode is True")
+    @model_validator(mode="after")
+    def validate_coordinates(self) -> "CoastalRequest":
+        """Validate coordinates based on batch mode."""
+        if self.batch_mode:
+            # Batch mode validation
+            if not (isinstance(self.lat, list) and isinstance(self.lon, list)):
+                raise ValueError("In batch mode, lat and lon must be lists")
+            if len(self.lat) != len(self.lon):
+                raise ValueError("lat and lon lists must have equal length")
+            # Validate ranges
+            for lat, lon in zip(self.lat, self.lon):
+                if not (-90 <= lat <= 90):
+                    raise ValueError(f"Latitude {lat} is outside valid range [-90, 90]")
+                if not (-180 <= lon <= 180):
+                    raise ValueError(
+                        f"Longitude {lon} is outside valid range [-180, 180]"
+                    )
         else:
-            # batch_mode = False, lat and lon must be single floats
-            if isinstance(values.lat, list) or isinstance(values.lon, list):
-                raise ValueError("lat and lon must be single floats when batch_mode is False")
-        return values
+            # Single coordinate validation
+            if isinstance(self.lat, list) or isinstance(self.lon, list):
+                raise ValueError("In single mode, lat and lon must be floats")
+            if not (-90 <= float(self.lat) <= 90):
+                raise ValueError(
+                    f"Latitude {self.lat} is outside valid range [-90, 90]"
+                )
+            if not (-180 <= float(self.lon) <= 180):
+                raise ValueError(
+                    f"Longitude {self.lon} is outside valid range [-180, 180]"
+                )
+        return self
 
 
 class CoastalDetectionResponse(BaseModel):
     """Response object for a single coastal detection result."""
+
     distance_to_coast_m: int
     land_cover_class: str
     nearest_coastal_point: List[float]
@@ -93,7 +107,7 @@ async def home() -> Dict[str, str]:
 
 @app.post("/detect")
 async def detect_coastal_info(
-    request: CoastalDetectionRequest,
+    request: CoastalRequest,
     response: Response,
 ) -> Union[CoastalDetectionResponse, List[CoastalDetectionResponse]]:
     """Detect coastal information for given coordinates.
@@ -138,26 +152,27 @@ async def detect_coastal_info(
 
             responses = []
             for i, row in df_results.iterrows():
-                land_cover_class = land_water_mapping.get(int(row['land_class']), "Unknown")
+                land_cover_class = land_water_mapping.get(
+                    int(row["land_class"]), "Unknown"
+                )
                 responses.append(
                     CoastalDetectionResponse(
-                        distance_to_coast_m=int(row['distance_m']),
+                        distance_to_coast_m=int(row["distance_m"]),
                         land_cover_class=land_cover_class,
                         nearest_coastal_point=[
-                            round(float(row['nearest_lat']), 5),
-                            round(float(row['nearest_lon']), 5),
+                            round(float(row["nearest_lat"]), 5),
+                            round(float(row["nearest_lon"]), 5),
                         ],
                         version=datetime.today(),
                     )
                 )
             return responses
 
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions
     except Exception as e:
-        logger.exception("Error in processing request: %s", str(e))
-        raise HTTPException(
-            status_code=500,
-            detail="Internal Server Error",
-        )
+        logger.error("Error in processing request: %s", str(e), exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
@@ -166,5 +181,5 @@ if __name__ == "__main__":
         host=HOST,
         port=int(PORT),
         proxy_headers=True,
-        workers=25  # Add this line
+        workers=25,  # Add this line
     )

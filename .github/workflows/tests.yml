@@ -42,11 +42,11 @@ jobs:
           # Wait for container to be ready
           sleep 5
 
-          # Run the tests
-          docker compose exec -T test pytest tests/ -vv
+          # Run all tests in parallel
+          docker compose exec -T test pytest tests/ -vv -n auto
 
-          # Run specific test file
-          docker compose exec -T test pytest tests/test_main.py -vv
+          # Run specific test file in parallel
+          docker compose exec -T test pytest tests/test_main.py -vv -n auto
 
       - name: Cleanup
         run: docker compose down
