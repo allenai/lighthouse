@@ -149,7 +149,6 @@ tabulate>=0,<1
 tenacity>=9,<10
 threadpoolctl>=3,<4
 topojson>=1,<2
-tornado>=6,<7
 tqdm>=4,<5
 traitlets>=5,<6
 typeguard>=4,<5

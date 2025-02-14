@@ -39,7 +39,7 @@ def get_distance_to_coast_single(lat: float, lon: float) -> Any:
         return data.get("distance_to_coast_m", -1)
     except requests.RequestException as e:
         logger.error(
-            f"Error fetching distance for lat: {lat:.6f}, lon: {lon:.6f} - {e}"
+            f"Error fetching distance for lat: {lat:.6f}, " f"lon: {lon:.6f} - {e}"
         )
         return -1
 

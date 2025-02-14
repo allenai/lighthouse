@@ -7,8 +7,6 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PYTHONPATH=/src
 
-# Set shell options
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install system dependencies for GDAL 3.6 and other geospatial libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \
