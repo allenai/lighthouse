@@ -7,10 +7,20 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PYTHONPATH=/src
 
-# Install system dependencies for GDAL and other geospatial libraries
+# Set shell options
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# Install system dependencies for GDAL 3.6 and other geospatial libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gdal-bin \
-    libgdal-dev \
+    software-properties-common \
+    gnupg \
+    wget \
+    && wget -qO - https://apt.kitware.com/keys/kitware-archive-latest.asc | apt-key add - \
+    && apt-add-repository "deb https://apt.kitware.com/ubuntu/ $(lsb_release -cs) main" \
+    && add-apt-repository ppa:ubuntugis/ppa \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    gdal-bin=3.6.* \
+    libgdal-dev=3.6.* \
     libproj-dev \
     libgeos-dev \
     gcc \
@@ -18,11 +28,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
+# Set GDAL environment variables
+ENV GDAL_VERSION=3.6.4
+ENV CPLUS_INCLUDE_PATH=/usr/include/gdal
+ENV C_INCLUDE_PATH=/usr/include/gdal
+
 # Copy requirements to leverage Docker cache if requirements haven't changed
 COPY requirements/requirements.txt /tmp/requirements.txt
 
 # Install Python packages
-RUN pip install --no-cache-dir --upgrade -r /tmp/requirements.txt
+RUN pip install --no-cache-dir pip==24.0 \
+    && pip install --no-cache-dir GDAL==${GDAL_VERSION} \
+    && pip install --no-cache-dir -r /tmp/requirements.txt
 
 # Set the working directory
 WORKDIR /src
@@ -39,5 +56,4 @@ COPY ./data/resampled_h5s/Ai2_WorldCover_10m_2024_v1_N47W123_Map.h5 /data/resamp
 EXPOSE 8000
 
 # Specify the default command to run
-CMD ["python", "main.py"]
-# Set work directory
+CMD ["python", "-m", "src.main"]

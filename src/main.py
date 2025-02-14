@@ -6,13 +6,12 @@ import logging.config
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, AsyncIterator, Dict, List, Optional, Union
+from typing import AsyncIterator, Dict, List, Union
 
 import numpy as np
 import uvicorn
 from fastapi import FastAPI, HTTPException, Response
-from pydantic import BaseModel, Field, ConfigDict, model_validator
-from typing import Union, List
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, model_validator
 
 from pipeline import land_water_mapping
 from pipeline import main as pipeline_main
@@ -50,7 +49,8 @@ class CoastalDetectionRequest(BaseModel):
     model_config = ConfigDict(strict=True)
 
     batch_mode: bool = Field(
-        default=False, description="Enable batch mode for multiple coordinates."
+        default=False,
+        description="Enable batch mode for multiple coordinates.",
     )
     lat: Union[float, List[float]] = Field(
         ...,
@@ -61,24 +61,42 @@ class CoastalDetectionRequest(BaseModel):
         description="Longitude(s) of the point(s)",
     )
 
-    @model_validator(mode='after')
-    def check_lat_lon(cls, values: 'CoastalDetectionRequest') -> 'CoastalDetectionRequest':
-        """Validate that lat/lon match the batch_mode."""
-        if values.batch_mode:
+    @model_validator(mode="after")
+    def check_lat_lon(
+        self,
+        info: ValidationInfo,
+    ) -> "CoastalDetectionRequest":
+        """Validate that lat/lon match the batch_mode.
+
+        Args:
+            info: Validation context information
+
+        Returns:
+            The validated model instance
+
+        Raises:
+            ValueError: If lat/lon types don't match batch_mode setting
+        """
+        if self.batch_mode:
             # batch_mode = True, lat and lon must be lists
-            if not isinstance(values.lat, list) or not isinstance(values.lon, list):
+            if not isinstance(self.lat, list) or not isinstance(self.lon, list):
                 raise ValueError("lat and lon must be lists when batch_mode is True")
-            if len(values.lat) != len(values.lon):
-                raise ValueError("lat and lon must have the same length when batch_mode is True")
+            if len(self.lat) != len(self.lon):
+                raise ValueError(
+                    "lat and lon must have the same length when batch_mode is True"
+                )
         else:
             # batch_mode = False, lat and lon must be single floats
-            if isinstance(values.lat, list) or isinstance(values.lon, list):
-                raise ValueError("lat and lon must be single floats when batch_mode is False")
-        return values
+            if isinstance(self.lat, list) or isinstance(self.lon, list):
+                raise ValueError(
+                    "lat and lon must be single floats when batch_mode is False"
+                )
+        return self
 
 
 class CoastalDetectionResponse(BaseModel):
     """Response object for a single coastal detection result."""
+
     distance_to_coast_m: int
     land_cover_class: str
     nearest_coastal_point: List[float]
@@ -138,14 +156,16 @@ async def detect_coastal_info(
 
             responses = []
             for i, row in df_results.iterrows():
-                land_cover_class = land_water_mapping.get(int(row['land_class']), "Unknown")
+                land_cover_class = land_water_mapping.get(
+                    int(row["land_class"]), "Unknown"
+                )
                 responses.append(
                     CoastalDetectionResponse(
-                        distance_to_coast_m=int(row['distance_m']),
+                        distance_to_coast_m=int(row["distance_m"]),
                         land_cover_class=land_cover_class,
                         nearest_coastal_point=[
-                            round(float(row['nearest_lat']), 5),
-                            round(float(row['nearest_lon']), 5),
+                            round(float(row["nearest_lat"]), 5),
+                            round(float(row["nearest_lon"]), 5),
                         ],
                         version=datetime.today(),
                     )
@@ -166,5 +186,5 @@ if __name__ == "__main__":
         host=HOST,
         port=int(PORT),
         proxy_headers=True,
-        workers=25  # Add this line
+        workers=25,  # Add this line
     )

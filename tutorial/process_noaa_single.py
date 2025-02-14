@@ -1,46 +1,68 @@
-import os
-import requests
-import pandas as pd
-from tqdm import tqdm
-from multiprocessing import Pool, cpu_count
+"""Process NOAA track data to add distance to coast information (single mode)."""
 
-input_directory = "/home/patrickb/litus/tracks"
-output_directory = "/home/patrickb/litus/track_with_d2c"
+import logging
+from multiprocessing import Pool, cpu_count
+from pathlib import Path
+from typing import Any, Union
+
+import pandas as pd
+import requests
+from tqdm import tqdm
+
+logger = logging.getLogger(__name__)
+
+
+# Define paths relative to script location
+ROOT_DIR = Path(__file__).resolve().parent.parent
+input_directory = ROOT_DIR / "data" / "tracks"
+output_directory = ROOT_DIR / "data" / "track_with_d2c"
 
 # Coastal Detection Service URL
 COASTAL_DETECTION_URL = "http://0.0.0.0:8000/detect"
 
 
-def get_distance_to_coast_single(lat, lon):
-    """Fetch distance to coast from the Coastal Detection Service for a single point."""
-    payload = {
-        "lat": lat,
-        "lon": lon
-    }
+def get_distance_to_coast_single(lat: float, lon: float) -> Any:
+    """Fetch distance to coast from the Coastal Detection Service for a single point.
+
+    Args:
+        lat: Latitude of the point
+        lon: Longitude of the point
+
+    Returns:
+        Distance to coast in meters, or -1 if request fails
+    """
+    payload = {"lat": lat, "lon": lon}
     try:
-        response = requests.post(COASTAL_DETECTION_URL, json=payload)
+        response = requests.post(COASTAL_DETECTION_URL, json=payload, timeout=30)
         response.raise_for_status()
         data = response.json()
         return data.get("distance_to_coast_m", -1)
     except requests.RequestException as e:
-        print(f"Error fetching distance for lat: {lat}, lon: {lon} - {e}")
+        logger.error(
+            f"Error fetching distance for lat: {lat:.6f}, lon: {lon:.6f} - {e}"
+        )
         return -1
 
 
-def process_csv(file_path: str, output_path: str):
-    """Add distance_to_coast column to a CSV file by processing each point individually in parallel."""
+def process_csv(file_path: Union[str, Path], output_path: Union[str, Path]) -> None:
+    """Add distance_to_coast column to a CSV file.
+
+    Args:
+        file_path: Path to input CSV file
+        output_path: Path to save processed CSV file
+    """
     df = pd.read_csv(file_path)
 
     if "lat" not in df.columns or "lon" not in df.columns:
-        print(f"Skipping {file_path}: Missing 'lat' or 'lon' columns.")
+        logger.warning(f"Skipping {file_path}: Missing 'lat' or 'lon' columns")
         return
 
     lats = df["lat"].tolist()
     lons = df["lon"].tolist()
     n_points = len(lats)
 
-    print(f"Processing {os.path.basename(file_path)} with {n_points} points...")
-    print("Sending individual requests in parallel.")
+    logger.info(f"Processing {Path(file_path).name} with {n_points} points...")
+    logger.info("Sending individual requests in parallel.")
 
     # Prepare arguments as tuples for starmap
     args = zip(lats, lons)
@@ -49,23 +71,27 @@ def process_csv(file_path: str, output_path: str):
             tqdm(
                 p.starmap(get_distance_to_coast_single, args),
                 total=n_points,
-                desc="Processing individual points"
+                desc="Processing individual points",
             )
         )
 
     df["distance_to_coast"] = distances
-    os.makedirs(output_directory, exist_ok=True)
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_path, index=False)
-    print(f"Finished processing {file_path}. Output saved to {output_path}.")
+    logger.info(f"Finished processing {file_path}. Output saved to {output_path}")
+
+
+def main() -> None:
+    """Process each CSV file sequentially."""
+
+    input_files = list(input_directory.glob("*.csv"))
+
+    for input_file in input_files:
+        process_csv(
+            str(input_file),
+            str(output_directory / input_file.name),
+        )
 
 
 if __name__ == "__main__":
-    # Process each CSV file sequentially
-    input_files = [
-        f for f in os.listdir(input_directory) if f.endswith(".csv")
-    ]
-
-    for file_name in input_files:
-        input_path = os.path.join(input_directory, file_name)
-        output_path = os.path.join(output_directory, file_name)
-        process_csv(input_path, output_path)
+    main()
