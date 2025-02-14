@@ -7,18 +7,10 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PYTHONPATH=/src
 
-
-# Install system dependencies for GDAL 3.6 and other geospatial libraries
+# Install system dependencies for GDAL and other geospatial libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    software-properties-common \
-    gnupg \
-    wget \
-    && wget -qO - https://apt.kitware.com/keys/kitware-archive-latest.asc | apt-key add - \
-    && apt-add-repository "deb https://apt.kitware.com/ubuntu/ $(lsb_release -cs) main" \
-    && add-apt-repository ppa:ubuntugis/ppa \
-    && apt-get update && apt-get install -y --no-install-recommends \
-    gdal-bin=3.6.* \
-    libgdal-dev=3.6.* \
+    gdal-bin \
+    libgdal-dev \
     libproj-dev \
     libgeos-dev \
     gcc \
