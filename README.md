@@ -25,7 +25,7 @@ Key Features:
 ```bash
 docker pull ghcr.io/allenai/lighthouse
 docker run -d \
-  --name litus \
+  --name lighthouse \
   -p 8000:8000 \
   -v path/to/data:/src/data \
   ghcr.io/allenai/lighthouse
@@ -91,31 +91,31 @@ Expected output:
 3. Download dataset:
    ```bash
    mkdir -p data
-   gcloud alpha storage cp -r gs://litus/data/ data/
+   gcloud alpha storage cp -r gs://lighthouse/data/ data/
    ```
 
 ### Deployment Options
 
 #### Option 1: Pre-built Image (Recommended)
 ```bash
-docker pull ghcr.io/allenai/litus:sha-30b4d50
+docker pull ghcr.io/allenai/lighthouse:sha-30b4d50
 docker run -d \
-  --name litus \
+  --name lighthouse \
   -p 8000:8000 \
   -v path/to/data:/src/data \
-  ghcr.io/allenai/litus:sha-30b4d50
+  ghcr.io/allenai/lighthouse:sha-X
 ```
 
 #### Option 2: Build from Source
 ```bash
-git clone https://github.com/allenai/litus.git
-cd litus
-docker build -t litus .
+git clone https://github.com/allenai/lighthouse.git
+cd lighthouse
+docker build -t lighthouse .
 docker run -d \
-  --name litus \
+  --name lighthouse \
   -p 8000:8000 \
   -v path/to/data:/src/data \
-  litus
+  lighthouse
 ```
 
 ## Development
@@ -212,7 +212,7 @@ We gratefully acknowledge:
   title = {Lighthouse: High-Precision Coastal Distance Calculator},
   author = {{Allen Institute for AI}},
   year = {2024},
-  url = {https://github.com/allenai/litus},
+  url = {https://github.com/allenai/lighthouse},
   note = {Uses ESA WorldCover 2021 and OpenStreetMap data}
 }
 ```
