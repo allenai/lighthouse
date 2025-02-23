@@ -51,8 +51,7 @@ logger.info(
 
 # Read the world map from Natural Earth
 world_url = (
-    "https://naturalearth.s3.amazonaws.com"
-    "/110m_cultural/ne_110m_admin_0_countries.zip"
+    "https://naturalearth.s3.amazonaws.com/110m_cultural/ne_110m_admin_0_countries.zip"
 )
 
 # Read the dataset
