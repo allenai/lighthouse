@@ -139,7 +139,7 @@ pre-commit install
 pytest tests/
 ```
 
-### Code Quality
+### Code Conventions
 - Black for formatting
 - Ruff for linting
 - MyPy for type checking
