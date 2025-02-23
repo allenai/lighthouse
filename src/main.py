@@ -1,17 +1,11 @@
-"""Coastal Detection Service"""
-
-from __future__ import annotations
-
-import logging.config
-import os
-from contextlib import asynccontextmanager
-from datetime import datetime
-from typing import Any, AsyncIterator, Dict, List, Optional, Union
+from fastapi import FastAPI, HTTPException, Response
+from pydantic import BaseModel, Field, model_validator, ValidationError
 
 import numpy as np
-import uvicorn
-from fastapi import FastAPI, HTTPException, Response
-from pydantic import BaseModel, ConfigDict, Field
+import logging
+import os
+from datetime import datetime
+from typing import List, Union
 
 from pipeline import land_water_mapping
 from pipeline import main as pipeline_main
@@ -21,71 +15,76 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Define constants
-HOST: str = "0.0.0.0"  # nosec B104
-PORT: Union[str, int] = os.getenv("COASTAL_DETECTION_PORT", 8000)
-MODEL_VERSION: Union[str, datetime] = os.getenv("GIT_COMMIT_HASH", datetime.today())
+HOST = "0.0.0.0"  # nosec B104
+PORT = os.getenv("COASTAL_DETECTION_PORT", 8000)
+MODEL_VERSION = os.getenv("GIT_COMMIT_HASH", datetime.today())
+
+app = FastAPI()
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Handle startup and shutdown events."""
-    # Startup
-    logger.info("Starting Coastal Detection Service")
-    yield
-    # Shutdown
-    logger.info("Shutting down Coastal Detection Service")
+# ✅ Added missing health check endpoint
+@app.get("/")
+async def home() -> dict:
+    """Health check endpoint to confirm the service is running."""
+    return {"message": "Coastal Detection Service is running"}
 
 
-app = FastAPI(lifespan=lifespan)
-
-
-class RoundedFloat(float):
-    """Rounds floats to a specified number of decimal places."""
-
-    def __new__(
-        cls,
-        value: Union[float, np.float32, np.float64],
-        n_decimals: Optional[int] = 5,
-    ) -> RoundedFloat:
-        if n_decimals is not None:
-            cls.n_decimals = n_decimals
-        return super().__new__(cls, round(float(value), cls.n_decimals))
-
-    @classmethod
-    def __get_pydantic_json_schema__(cls, schema: Dict[str, Any]) -> Dict[str, Any]:
-        """Define custom JSON schema for RoundedFloat."""
-        return {
-            "type": "number",
-            "description": "A float rounded to a specified precision",
-        }
-
-    @classmethod
-    def __get_pydantic_core_schema__(cls, _source_type: Any, _handler: Any) -> Any:
-        """Pydantic v2 core schema compatibility."""
-
-        def validate(value: Union[float, np.float32, np.float64]) -> RoundedFloat:
-            if isinstance(value, (np.float32, np.float64)):
-                value = float(value)
-            return cls(value)
-
-        return validate
-
-
-class CoastalDetectionRequest(BaseModel):
+class CoastalRequest(BaseModel):
     """Request object for coastal detections."""
 
-    model_config = ConfigDict(strict=True)  # Ensures strict type checking
+    batch_mode: bool = Field(
+        default=False, description="Enable batch mode for multiple coordinates."
+    )
+    lat: Union[float, List[float]] = Field(
+        ..., description="Latitude(s) of the point(s)"
+    )
+    lon: Union[float, List[float]] = Field(
+        ..., description="Longitude(s) of the point(s)"
+    )
 
-    lat: float = Field(
-        ..., description="Latitude of the point", ge=-90, le=90, examples=[47.6369]
-    )
-    lon: float = Field(
-        ..., description="Longitude of the point", ge=-180, le=180, examples=[-122.3350]
-    )
+    @model_validator(mode="after")
+    def check_lat_lon(self) -> "CoastalRequest":
+        """Validate lat/lon values."""
+        if self.batch_mode:
+            if not isinstance(self.lat, list) or not isinstance(self.lon, list):
+                raise ValueError("lat and lon must be lists when batch_mode is True")
+            if len(self.lat) != len(self.lon):
+                raise ValueError(
+                    "lat and lon must have the same length when batch_mode is True"
+                )
+
+            # ✅ Validate each latitude & longitude
+            for lat, lon in zip(self.lat, self.lon):
+                if not (-90 <= lat <= 90):
+                    raise ValueError(
+                        f"Invalid latitude: {lat}. Must be between -90 and 90."
+                    )
+                if not (-180 <= lon <= 180):
+                    raise ValueError(
+                        f"Invalid longitude: {lon}. Must be between -180 and 180."
+                    )
+
+        else:
+            if isinstance(self.lat, list) or isinstance(self.lon, list):
+                raise ValueError(
+                    "lat and lon must be single floats when batch_mode is False"
+                )
+
+            # ✅ Validate single latitude & longitude
+            if not (-90 <= self.lat <= 90):
+                raise ValueError(
+                    f"Invalid latitude: {self.lat}. Must be between -90 and 90."
+                )
+            if not (-180 <= self.lon <= 180):
+                raise ValueError(
+                    f"Invalid longitude: {self.lon}. Must be between -180 and 180."
+                )
+
+        return self
 
 
 class CoastalDetectionResponse(BaseModel):
-    """Response object for coastal detections."""
+    """Response object for a single coastal detection result."""
 
     distance_to_coast_m: int
     land_cover_class: str
@@ -93,64 +92,74 @@ class CoastalDetectionResponse(BaseModel):
     version: datetime
 
 
-@app.get("/")
-async def home() -> Dict[str, str]:
-    """Health check endpoint to confirm the service is running."""
-    return {"message": "Coastal Detection Service is running"}
-
-
-@app.post("/detect", response_model=CoastalDetectionResponse)
+@app.post("/detect")
 async def detect_coastal_info(
-    request: CoastalDetectionRequest,
-    response: Response,
-) -> CoastalDetectionResponse:
-    """Detect coastal information for given coordinates.
-
-    Args:
-        request: The request containing lat/lon coordinates
-        response: FastAPI response object
-
-    Returns:
-        CoastalDetectionResponse with distance, land cover, and nearest point
-
-    Raises:
-        HTTPException: If there's an error processing the request
-    """
+    request: CoastalRequest, response: Response
+) -> Union[CoastalDetectionResponse, List[CoastalDetectionResponse]]:
+    """Detect coastal information for given coordinates."""
     try:
-        # Run the detection logic from pipeline
-        distance_m, land_class_id, nearest_point = pipeline_main(
-            request.lat,
-            request.lon,
-        )
+        if not request.batch_mode:
+            # Single coordinate processing
+            distance_m, land_class_id, nearest_point = pipeline_main(
+                request.lat, request.lon, batch_mode=False
+            )
 
-        # Map land cover class
-        land_cover_class = land_water_mapping.get(land_class_id, "Unknown")
-        logger.info("Land cover class: %s", land_cover_class)
-        logger.info("Distance to coast: %d m", distance_m)
+            land_cover_class = land_water_mapping.get(land_class_id, "Unknown")
+            logger.info("Land cover class: %s", land_cover_class)
+            logger.info("Distance to coast: %d m", distance_m)
 
-        # Prepare the response with rounded coordinates
-        return CoastalDetectionResponse(
-            distance_to_coast_m=int(distance_m),
-            land_cover_class=land_cover_class,
-            nearest_coastal_point=[
-                round(float(nearest_point[0]), 5),
-                round(float(nearest_point[1]), 5),
-            ],
-            version=datetime.today(),
-        )
+            return CoastalDetectionResponse(
+                distance_to_coast_m=int(distance_m),
+                land_cover_class=land_cover_class,
+                nearest_coastal_point=[
+                    round(float(nearest_point[0]), 5),
+                    round(float(nearest_point[1]), 5),
+                ],
+                version=datetime.today(),
+            )
+
+        else:
+            # Batch mode
+            lats = np.array(request.lat)
+            lons = np.array(request.lon)
+            df_results = pipeline_main(lats, lons, batch_mode=True)
+
+            responses = []
+            for i, row in df_results.iterrows():
+                land_cover_class = land_water_mapping.get(
+                    int(row["land_class"]), "Unknown"
+                )
+                responses.append(
+                    CoastalDetectionResponse(
+                        distance_to_coast_m=int(row["distance_m"]),
+                        land_cover_class=land_cover_class,
+                        nearest_coastal_point=[
+                            round(float(row["nearest_lat"]), 5),
+                            round(float(row["nearest_lon"]), 5),
+                        ],
+                        version=datetime.today(),
+                    )
+                )
+            return responses
+
+    except ValidationError as e:
+        logger.error("Validation error: %s", e)
+        raise HTTPException(
+            status_code=422, detail=str(e)
+        )  # ✅ Return 422 Unprocessable Entity
+
+    except ValueError as e:
+        logger.error("User input error: %s", e)
+        raise HTTPException(
+            status_code=400, detail=str(e)
+        )  # ✅ Return 400 Bad Request for ValueErrors
 
     except Exception as e:
-        logger.error("Error in processing request: %s", str(e))
-        raise HTTPException(
-            status_code=500,
-            detail="Internal Server Error",
-        )
+        logger.error("Internal server error: %s", str(e), exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host=HOST,
-        port=int(PORT),
-        proxy_headers=True,
-    )
+    import uvicorn
+
+    uvicorn.run("main:app", host=HOST, port=int(PORT), proxy_headers=True, workers=25)

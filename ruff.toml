@@ -1,1 +1,5 @@
-lint.extend-select = ["T201"]
+[lint]
+extend-select = ["T201"]  # Enable additional linting rules (e.g., print statements)
+
+[format]
+exclude = ["*.ipynb", "src/main.py"]
