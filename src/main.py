@@ -1,17 +1,11 @@
-"""Coastal Detection Service"""
-
-from __future__ import annotations
-
-import logging.config
-import os
-from contextlib import asynccontextmanager
-from datetime import datetime
-from typing import AsyncIterator, Dict, List, Union
+from fastapi import FastAPI, HTTPException, Response
+from pydantic import BaseModel, Field, model_validator, ValidationError
 
 import numpy as np
-import uvicorn
-from fastapi import FastAPI, HTTPException, Response
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, model_validator
+import logging
+import os
+from datetime import datetime
+from typing import List, Union
 
 from pipeline import land_water_mapping
 from pipeline import main as pipeline_main
@@ -21,36 +15,18 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Define constants
-HOST: str = "0.0.0.0"  # nosec B104
-PORT: Union[str, int] = os.getenv("COASTAL_DETECTION_PORT", 8000)
-MODEL_VERSION: Union[str, datetime] = os.getenv("GIT_COMMIT_HASH", datetime.today())
+HOST = "0.0.0.0"  # nosec B104
+PORT = os.getenv("COASTAL_DETECTION_PORT", 8000)
+MODEL_VERSION = os.getenv("GIT_COMMIT_HASH", datetime.today())
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Handle startup and shutdown events."""
-    # Startup
-    logger.info("Starting Coastal Detection Service")
-    yield
-    # Shutdown
-    logger.info("Shutting down Coastal Detection Service")
-
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 
 class CoastalRequest(BaseModel):
-    """Request object for coastal detections.
-
-    If batch_mode is False, lat and lon should be single floats.
-    If batch_mode is True, lat and lon should be lists of floats of equal length.
-    """
-
-    model_config = ConfigDict(strict=True)
+    """Request object for coastal detections."""
 
     batch_mode: bool = Field(
-        default=False,
-        description="Enable batch mode for multiple coordinates.",
+        default=False, description="Enable batch mode for multiple coordinates."
     )
     lat: Union[float, List[float]] = Field(
         ..., description="Latitude(s) of the point(s)"
@@ -60,35 +36,43 @@ class CoastalRequest(BaseModel):
     )
 
     @model_validator(mode="after")
-    def check_lat_lon(
-        self,
-        info: ValidationInfo,
-    ) -> "CoastalRequest":
-        """Validate that lat/lon match the batch_mode.
-
-        Args:
-            info: Validation context information
-
-        Returns:
-            The validated model instance
-
-        Raises:
-            ValueError: If lat/lon types don't match batch_mode setting
-        """
+    def check_lat_lon(self) -> "CoastalRequest":
+        """Validate lat/lon values."""
         if self.batch_mode:
-            # batch_mode = True, lat and lon must be lists
             if not isinstance(self.lat, list) or not isinstance(self.lon, list):
                 raise ValueError("lat and lon must be lists when batch_mode is True")
             if len(self.lat) != len(self.lon):
                 raise ValueError(
                     "lat and lon must have the same length when batch_mode is True"
                 )
+
+            # ✅ Validate each latitude & longitude
+            for lat, lon in zip(self.lat, self.lon):
+                if not (-90 <= lat <= 90):
+                    raise ValueError(
+                        f"Invalid latitude: {lat}. Must be between -90 and 90."
+                    )
+                if not (-180 <= lon <= 180):
+                    raise ValueError(
+                        f"Invalid longitude: {lon}. Must be between -180 and 180."
+                    )
+
         else:
-            # batch_mode = False, lat and lon must be single floats
             if isinstance(self.lat, list) or isinstance(self.lon, list):
                 raise ValueError(
                     "lat and lon must be single floats when batch_mode is False"
                 )
+
+            # ✅ Validate single latitude & longitude
+            if not (-90 <= self.lat <= 90):
+                raise ValueError(
+                    f"Invalid latitude: {self.lat}. Must be between -90 and 90."
+                )
+            if not (-180 <= self.lon <= 180):
+                raise ValueError(
+                    f"Invalid longitude: {self.lon}. Must be between -180 and 180."
+                )
+
         return self
 
 
@@ -101,30 +85,11 @@ class CoastalDetectionResponse(BaseModel):
     version: datetime
 
 
-@app.get("/")
-async def home() -> Dict[str, str]:
-    """Health check endpoint to confirm the service is running."""
-    return {"message": "Coastal Detection Service is running"}
-
-
 @app.post("/detect")
 async def detect_coastal_info(
-    request: CoastalRequest,
-    response: Response,
+    request: CoastalRequest, response: Response
 ) -> Union[CoastalDetectionResponse, List[CoastalDetectionResponse]]:
-    """Detect coastal information for given coordinates.
-
-    Args:
-        request: The request containing lat/lon coordinates and batch_mode
-        response: FastAPI response object
-
-    Returns:
-        - If batch_mode=False: A single CoastalDetectionResponse
-        - If batch_mode=True: A list of CoastalDetectionResponse objects
-
-    Raises:
-        HTTPException: If there's an error processing the request
-    """
+    """Detect coastal information for given coordinates."""
     try:
         if not request.batch_mode:
             # Single coordinate processing
@@ -132,7 +97,6 @@ async def detect_coastal_info(
                 request.lat, request.lon, batch_mode=False
             )
 
-            # Map land cover class
             land_cover_class = land_water_mapping.get(land_class_id, "Unknown")
             logger.info("Land cover class: %s", land_cover_class)
             logger.info("Distance to coast: %d m", distance_m)
@@ -146,8 +110,9 @@ async def detect_coastal_info(
                 ],
                 version=datetime.today(),
             )
+
         else:
-            # Batch mode: lat and lon are lists
+            # Batch mode
             lats = np.array(request.lat)
             lons = np.array(request.lon)
             df_results = pipeline_main(lats, lons, batch_mode=True)
@@ -170,18 +135,24 @@ async def detect_coastal_info(
                 )
             return responses
 
-    except HTTPException:
-        raise  # Re-raise HTTP exceptions
+    except ValidationError as e:
+        logger.error("Validation error: %s", e)
+        raise HTTPException(
+            status_code=422, detail=str(e)
+        )  # ✅ Return 422 Unprocessable Entity
+
+    except ValueError as e:
+        logger.error("User input error: %s", e)
+        raise HTTPException(
+            status_code=400, detail=str(e)
+        )  # ✅ Return 400 Bad Request for ValueErrors
+
     except Exception as e:
-        logger.error("Error in processing request: %s", str(e), exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Internal server error: %s", str(e), exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host=HOST,
-        port=int(PORT),
-        proxy_headers=True,
-        workers=25,  # Add this line
-    )
+    import uvicorn
+
+    uvicorn.run("main:app", host=HOST, port=int(PORT), proxy_headers=True, workers=25)

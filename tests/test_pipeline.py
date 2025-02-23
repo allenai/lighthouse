@@ -90,18 +90,23 @@ def test_main_with_different_locations(
     mock_ball_tree: BallTree,
 ) -> None:
     """Test main function with different geographic locations."""
-    with patch(
-        "src.pipeline.get_filename_for_coordinates",
-        return_value="test.h5",
-    ), patch(
-        "src.pipeline.h5_to_integer",
-        return_value=expected_class,
-    ), patch(
-        "src.pipeline.get_ball_tree",
-        return_value=mock_ball_tree,
-    ), patch(
-        "src.pipeline.ball_tree_distance",
-        return_value=(100.0, np.array([lat, lon])),
+    with (
+        patch(
+            "src.pipeline.get_filename_for_coordinates",
+            return_value="test.h5",
+        ),
+        patch(
+            "src.pipeline.h5_to_integer",
+            return_value=expected_class,
+        ),
+        patch(
+            "src.pipeline.get_ball_tree",
+            return_value=mock_ball_tree,
+        ),
+        patch(
+            "src.pipeline.ball_tree_distance",
+            return_value=(100.0, np.array([lat, lon])),
+        ),
     ):
         distance_m, land_class, nearest_point = main(lat, lon)
         assert isinstance(distance_m, float)
