@@ -1,8 +1,8 @@
 # Lighthouse
-Fast and precise distance to shoreline calculations from anywhere on earth. Lighthouse* stands for Layered Iterative Geospatial Hierarchical Terrain-Oriented Unified Search Engine. 
+Fast and precise distance to shoreline calculations from anywhere on earth. 
 
 ##  Overview
-Ligthhouse is a library for efficiently querying a 10 meter distance to coast dataset. Lighthouse is a hierarchical search algorithm  that leverages a pre-computed spherical Voronoi tesselation of the whole planet's coastalines (at low resolution) and ball trees constructed from high resolution coastal datasets. The ball trees were generated from a hybrid dataset of satellite imagery based annotations from two sources:
+Ligthhouse is a library for efficiently querying a 10 meter distance to coast dataset. Lighthouse is a hierarchical search algorithm (Layered Iterative Geospatial Hierarchical Terrain-Oriented Unified Search Engine) that leverages a pre-computed spherical Voronoi tesselation of the whole planet's coastalines (at low resolution) and ball trees (at high resolution) to produce very fast computations with minimal resources. The ball trees were generated from a hybrid dataset of satellite imagery based annotations from two sources:
 - [ESA WorldCover V2](https://esa-worldcover.org/en): 10m resolution global land cover data
 - [OpenStreetMap](https://www.openstreetmap.org) land-water polygon labels
 
