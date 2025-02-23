@@ -93,6 +93,17 @@ Expected output:
    mkdir -p data
    gcloud alpha storage cp -r gs://lighthouse/data/ data/
    ```
+### How does this work? 
+In brief we generated a spherical voronoi (at low resolution) to identify the nearest section of coastline. Then queried a precomputed ball tree (at high resolution) generated via computer vision and 10 meter resolution satellite imagery. 
+
+![voronoi (1)](https://github.com/user-attachments/assets/4e91968d-714e-451e-bf04-24e4016e2db5)
+
+^^ that's the Voronoi. 
+
+![triplet_of_fun](https://github.com/user-attachments/assets/035f797d-fa94-42e8-bb3b-7f89b077a9ee)
+^^ that's a depiction of the method. 
+
+See the paper (arXiv) for details. 
 
 ### Deployment Options
 
