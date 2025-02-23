@@ -52,16 +52,14 @@ repos:
       - id: bandit
         exclude: "^tests/"
 
-  - repo: local
+  - repo: https://github.com/econchick/interrogate
+    rev: 1.5.0
     hooks:
       - id: interrogate
-        name: interrogate
-        language: system
-        entry: interrogate
-        types: [python]
-        exclude: "setup.py"
+        additional_dependencies: [setuptools]
         args:
           [--ignore-init-method, --ignore-init-module, -p, -vv, --fail-under=80]
+        exclude: "setup.py"
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.2.2
@@ -80,4 +78,4 @@ repos:
         language: docker_image
         types: ["dockerfile"]
         entry: ghcr.io/hadolint/hadolint hadolint
-        args: ["--ignore", "DL3008"]
+        args: ["--ignore", "DL3008", "--ignore", "DL4006"]

@@ -11,7 +11,7 @@ from typing import AsyncIterator, Dict, List, Union
 import numpy as np
 import uvicorn
 from fastapi import FastAPI, HTTPException, Response
-from pydantic import BaseModel, Field, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, model_validator
 
 from pipeline import land_water_mapping
 from pipeline import main as pipeline_main
@@ -49,7 +49,8 @@ class CoastalRequest(BaseModel):
     model_config = ConfigDict(strict=True)
 
     batch_mode: bool = Field(
-        default=False, description="Enable batch mode for multiple coordinates."
+        default=False,
+        description="Enable batch mode for multiple coordinates.",
     )
     lat: Union[float, List[float]] = Field(
         ..., description="Latitude(s) of the point(s)"
@@ -59,33 +60,34 @@ class CoastalRequest(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_coordinates(self) -> "CoastalRequest":
-        """Validate coordinates based on batch mode."""
+    def check_lat_lon(
+        self,
+        info: ValidationInfo,
+    ) -> "CoastalRequest":
+        """Validate that lat/lon match the batch_mode.
+
+        Args:
+            info: Validation context information
+
+        Returns:
+            The validated model instance
+
+        Raises:
+            ValueError: If lat/lon types don't match batch_mode setting
+        """
         if self.batch_mode:
-            # Batch mode validation
-            if not (isinstance(self.lat, list) and isinstance(self.lon, list)):
-                raise ValueError("In batch mode, lat and lon must be lists")
+            # batch_mode = True, lat and lon must be lists
+            if not isinstance(self.lat, list) or not isinstance(self.lon, list):
+                raise ValueError("lat and lon must be lists when batch_mode is True")
             if len(self.lat) != len(self.lon):
-                raise ValueError("lat and lon lists must have equal length")
-            # Validate ranges
-            for lat, lon in zip(self.lat, self.lon):
-                if not (-90 <= lat <= 90):
-                    raise ValueError(f"Latitude {lat} is outside valid range [-90, 90]")
-                if not (-180 <= lon <= 180):
-                    raise ValueError(
-                        f"Longitude {lon} is outside valid range [-180, 180]"
-                    )
-        else:
-            # Single coordinate validation
-            if isinstance(self.lat, list) or isinstance(self.lon, list):
-                raise ValueError("In single mode, lat and lon must be floats")
-            if not (-90 <= float(self.lat) <= 90):
                 raise ValueError(
-                    f"Latitude {self.lat} is outside valid range [-90, 90]"
+                    "lat and lon must have the same length when batch_mode is True"
                 )
-            if not (-180 <= float(self.lon) <= 180):
+        else:
+            # batch_mode = False, lat and lon must be single floats
+            if isinstance(self.lat, list) or isinstance(self.lon, list):
                 raise ValueError(
-                    f"Longitude {self.lon} is outside valid range [-180, 180]"
+                    "lat and lon must be single floats when batch_mode is False"
                 )
         return self
 
