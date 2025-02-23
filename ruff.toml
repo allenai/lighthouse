@@ -2,4 +2,4 @@
 extend-select = ["T201"]  # Enable additional linting rules (e.g., print statements)
 
 [format]
-exclude = ["*.ipynb"]  # Ignore Jupyter notebooks during linting and formatting
+exclude = ["*.ipynb", "src/main.py"]

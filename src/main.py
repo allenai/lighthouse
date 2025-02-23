@@ -22,6 +22,13 @@ MODEL_VERSION = os.getenv("GIT_COMMIT_HASH", datetime.today())
 app = FastAPI()
 
 
+# ✅ Added missing health check endpoint
+@app.get("/")
+async def home() -> dict:
+    """Health check endpoint to confirm the service is running."""
+    return {"message": "Coastal Detection Service is running"}
+
+
 class CoastalRequest(BaseModel):
     """Request object for coastal detections."""
 
