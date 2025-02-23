@@ -203,7 +203,7 @@ Apache 2.0
 
 We gratefully acknowledge:
 - The European Space Agency (ESA) for creating the WorldCover land cover map and for making it openly accessible
-- The OpenStreetMap community for their invaluable contributions to pubclily available global maps
+- The OpenStreetMap community for their invaluable contributions to global mapping
 
 ## Citation
 
