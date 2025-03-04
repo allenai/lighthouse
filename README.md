@@ -27,7 +27,7 @@ docker pull ghcr.io/allenai/lighthouse
 docker run -d \
   --name lighthouse \
   -p 8000:8000 \
-  -v path/to/data:/src/data \
+  -v path/to/data:/data \
   ghcr.io/allenai/lighthouse
 ```
 
