@@ -46,4 +46,4 @@ COPY ./data/resampled_h5s/Ai2_WorldCover_10m_2024_v1_N47W123_Map.h5 /data/resamp
 EXPOSE 8000
 
 # Specify the default command to run
-CMD ["python", "-m", "src.main"]
+CMD ["python", "-m", "main"]

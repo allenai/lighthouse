@@ -1,5 +1,5 @@
 # Lighthouse
-Fast and precise distance to shoreline calculations from anywhere on earth (AoE). 
+Fast and precise distance to shoreline calculations from anywhere on earth (AoE).
 
 ##  Overview
 Ligthhouse is a library for efficiently querying a 10 meter distance to coast dataset. Lighthouse** is a hierarchical search algorithm (Layered Iterative Geospatial Hierarchical Terrain-Oriented Unified Search Engine) that leverages a pre-computed spherical Voronoi tesselation of the whole planet's coastlines (at low resolution) and ball trees (at high resolution) to produce very fast computations with minimal resources. The ball trees were generated from a hybrid dataset of satellite imagery based annotations from two sources:
@@ -58,6 +58,17 @@ Expected output:
 ## Installation
 
 ### Dataset Download
+Below is the updated README section reflecting the current dataset paths:
+
+---
+
+### Dataset Download
+
+The dataset is stored in a public Google Cloud Storage bucket at:
+
+```
+gs://ai2-coastlines/
+```
 
 1. Install gcloud CLI:
    <details>
@@ -83,27 +94,35 @@ Expected output:
    ```
    </details>
 
-2. Authenticate:
+2. Download dataset:
    ```bash
-   gcloud auth login
+    mkdir -p data
+    gcloud alpha storage cp --recursive "gs://ai2-coastlines/*" gs://ai2-coastlines/v1/
    ```
 
-3. Download dataset:
-   ```bash
-   mkdir -p data
-   gcloud alpha storage cp -r gs://lighthouse/data/ data/
-   ```
-### How does this work? 
-In brief we generated a spherical voronoi (at low resolution) to identify the nearest section of coastline. Then queried a precomputed ball tree (at high resolution) generated via computer vision and 10 meter resolution satellite imagery. 
+The above will download two types of files:
+
+1. **Ball Trees:**
+   Files are located at `ai2-coastlines/v1/data/ball_trees`
+   *Example:*
+   `ai2-coastlines/v1/data/ball_trees/Ai2_WorldCover_10m_2024_v1_N00E006_Map_coastal_points_ball_tree.joblib` (1.4 MB)
+
+2. **Resampled H5s:**
+   Files are located at `ai2-coastlines/v1/data/resampled_h5s`
+   *Example:*
+   `ai2-coastlines/v1/data/resampled_h5s/Ai2_WorldCover_10m_2024_v1_N00E006_Map.h5` (584.2 KB)
+
+### How does this work?
+In brief we generated a spherical voronoi (at low resolution) to identify the nearest section of coastline. Then queried a precomputed ball tree (at high resolution) generated via computer vision and 10 meter resolution satellite imagery.
 
 ![voronoi (1)](https://github.com/user-attachments/assets/4e91968d-714e-451e-bf04-24e4016e2db5)
 
-^^ that's the Voronoi. 
+^^ that's the Voronoi.
 
 ![triplet_of_fun](https://github.com/user-attachments/assets/035f797d-fa94-42e8-bb3b-7f89b077a9ee)
-^^ that's a depiction of the method. 
+^^ that's a depiction of the method.
 
-See the paper (arXiv) for details. 
+See the paper (arXiv) for details.
 
 ### Deployment Options
 
@@ -116,7 +135,11 @@ docker run -d \
   -v path/to/data:/src/data \
   ghcr.io/allenai/lighthouse:sha-X
 ```
-
+docker pull ghcr.io/allenai/lighthouse:sha-30b4d50
+docker run -d \
+  --name lighthouse \
+  -p 8000:8000 \
+  ghcr.io/allenai/lighthouse:sha-X
 #### Option 2: Build from Source
 ```bash
 git clone https://github.com/allenai/lighthouse.git
@@ -228,4 +251,4 @@ We gratefully acknowledge:
 }
 ```
 
-**Also Lighthouse is an excellent coffee shop in Seattle. 
+**Also Lighthouse is an excellent coffee shop in Seattle.
