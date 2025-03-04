@@ -56,21 +56,15 @@ Expected output:
 ```
 
 ## Installation
-
-### Dataset Download
-Below is the updated README section reflecting the current dataset paths:
-
----
-
 ### Dataset Download
 
 The dataset is stored in a public Google Cloud Storage bucket at:
 
 ```
-gs://ai2-coastlines/
+gs://ai2-coastlines/v1/data
 ```
 
-1. Install gcloud CLI:
+1. (optional) Install gcloud CLI:
    <details>
    <summary>Debian/Ubuntu</summary>
 
@@ -94,13 +88,24 @@ gs://ai2-coastlines/
    ```
    </details>
 
-2. Download dataset:
+2. Download dataset
+  a. using gcloud CLI
    ```bash
     mkdir -p data
-    gcloud alpha storage cp --recursive "gs://ai2-coastlines/*" gs://ai2-coastlines/v1/
+    gcloud storage cp --recursive gs://ai2-coastlines/v1/data /path/to/local/data
    ```
+  b.  using gsutil
+   ```bash
+   mkdir -p data
+    gsutil -m cp -r gs://ai2-coastlines/v1/data /path/to/local/data
+  ```
+  c. or using wget
+  ```bash
+  mkdir -p data
+  wget -r -np -nH --cut-dirs=3 -P data https://storage.googleapis.com/ai2-coastlines/v1/data/
+  ```
 
-The above will download two types of files:
+The above command will download two types of files:
 
 1. **Ball Trees:**
    Files are located at `ai2-coastlines/v1/data/ball_trees`
@@ -112,7 +117,7 @@ The above will download two types of files:
    *Example:*
    `ai2-coastlines/v1/data/resampled_h5s/Ai2_WorldCover_10m_2024_v1_N00E006_Map.h5` (584.2 KB)
 
-### How does this work?
+### How does this algorithm work?
 In brief we generated a spherical voronoi (at low resolution) to identify the nearest section of coastline. Then queried a precomputed ball tree (at high resolution) generated via computer vision and 10 meter resolution satellite imagery.
 
 ![voronoi (1)](https://github.com/user-attachments/assets/4e91968d-714e-451e-bf04-24e4016e2db5)
