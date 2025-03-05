@@ -93,6 +93,7 @@ gs://ai2-coastlines/v1/data
    </details>
 
 2. Download dataset
+   
   a. using gcloud CLI
    ```bash
     mkdir -p data
