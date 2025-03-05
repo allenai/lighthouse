@@ -51,7 +51,7 @@ Expected output:
 ```
 ## Installation
 ### Dataset Download
-
+Note that this dataset is large. approximately 500 GB storage space is required for the full dataset. Individual tiles (1 degree by 1 degree) can also be downloaded rather than whole dataset. 
 The dataset is stored in a public Google Cloud Storage bucket at:
 
 ```
