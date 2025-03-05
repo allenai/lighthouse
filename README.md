@@ -8,13 +8,11 @@ Key Features:
 
 ## Requirements
 - Docker 24.0+
-- 500GB storage space (recommended*)
 - 4GB RAM
+Optional 
 - gcloud CLI (for downloading dataset)
-
-Code is built on Python 3.12
-
-*While you can retrieve the required files on demand, doing so will result in slower query times. For streaming/real-time use cases, it is recommended to download the entire dataset to disk.
+- 500GB storage (recommended) 
+For streaming/real-time use cases, it is recommended to download the entire dataset to disk.
 
 ## Quick Start
 (without downloading full dataset)
