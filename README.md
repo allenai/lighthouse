@@ -12,6 +12,8 @@ Key Features:
 - 4GB RAM
 - gcloud CLI (for downloading dataset)
 
+Code is built on Python 3.12
+
 *While you can retrieve the required files on demand, doing so will result in slower query times. For streaming/real-time use cases, it is recommended to download the entire dataset to disk.
 
 ## Quick Start
@@ -125,7 +127,7 @@ pre-commit install
 
 ### Running Tests
 ```bash
-pytest tests/
+pytest tests
 ```
 
 ### Code Conventions
@@ -179,14 +181,16 @@ The ball trees were generated from a hybrid dataset of satellite imagery based a
 See the paper ([todo: add link arXiv]) for details.
 
 ## License
-
-### Code
-Apache 2.0
-
-### Dataset:
-- License: Open Database License (ODbL) v1.0
+Code: Apache 2.0
+Dataset: Open Database License (ODbL) v1.0
   - http://opendatacommons.org/licenses/odbl/1.0/
   - http://opendatacommons.org/licenses/dbcl/1.0/
+
+## Acknowledgments
+
+We gratefully acknowledge:
+- The European Space Agency (ESA) for creating the WorldCover land cover map and for making it openly accessible
+- The OpenStreetMap community for their invaluable contributions to global mapping
 
 ## References
 ### ESA WorldCover 2021
@@ -206,11 +210,6 @@ Apache 2.0
 - Source: https://www.openstreetmap.org
 - We used the land polygon data to generate land-sea masks: https://osmdata.openstreetmap.de/data/land-polygons.html
 
-## Acknowledgments
-
-We gratefully acknowledge:
-- The European Space Agency (ESA) for creating the WorldCover land cover map and for making it openly accessible
-- The OpenStreetMap community for their invaluable contributions to global mapping
 
 ## Citation
 
