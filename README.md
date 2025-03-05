@@ -58,18 +58,18 @@ The dataset is stored in a public Google Cloud Storage bucket at:
 gs://ai2-coastlines/v1/data
 ```
 
-1. Download dataset
-   ```bash
-    mkdir -p data
-    # using gcloud (see: https://cloud.google.com/sdk/docs/install)
-    gcloud storage cp --recursive gs://ai2-coastlines/v1/data /path/to/local/data
 
-    # using gsutil (see https://cloud.google.com/storage/docs/gsutil_install) 
-    gutil -m cp -r gs://ai2-coastlines/v1/data /path/to/local/data
+```bash
+mkdir -p data
+# using gcloud (see: https://cloud.google.com/sdk/docs/install)
+gcloud storage cp --recursive gs://ai2-coastlines/v1/data /path/to/local/data
 
-    # using wget (
-    wget -r -np -nH --cut-dirs=3 -P data https://storage.googleapis.com/ai2-coastlines/v1/data/
-    ```
+# using gsutil (see https://cloud.google.com/storage/docs/gsutil_install) 
+gutil -m cp -r gs://ai2-coastlines/v1/data /path/to/local/data
+
+# using wget (
+wget -r -np -nH --cut-dirs=3 -P data https://storage.googleapis.com/ai2-coastlines/v1/data/
+```
 
 The above command will download two types of files:
 
