@@ -15,7 +15,7 @@ Key Features:
 *While you can retrieve the required files on demand, doing so will result in slower query times. For streaming/real-time use cases, it is recommended to download the entire dataset to disk.
 
 ## Quick Start
-1. Download the dataset
+(without downloading full dataset)
 ```bash
 docker pull ghcr.io/allenai/lighthouse
 docker run -d \
@@ -24,6 +24,7 @@ docker run -d \
   -v path/to/data:/data \
   ghcr.io/allenai/lighthouse
 ```
+See ## Installation for downloading dataset from gcp. 
 
 ## Example Usage
 
