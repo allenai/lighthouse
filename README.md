@@ -1,16 +1,10 @@
 # Lighthouse
 Fast and precise distance to shoreline calculations from anywhere on earth (AoE).
 
-##  Overview
-Ligthhouse is a library for efficiently querying a 10 meter distance to coast dataset. Lighthouse** is a hierarchical search algorithm (Layered Iterative Geospatial Hierarchical Terrain-Oriented Unified Search Engine) that leverages a pre-computed spherical Voronoi tesselation of the whole planet's coastlines (at low resolution) and ball trees (at high resolution) to produce very fast computations with minimal resources. The ball trees were generated from a hybrid dataset of satellite imagery based annotations from two sources:
-- [ESA WorldCover V2](https://esa-worldcover.org/en): 10m resolution global land cover data
-- [OpenStreetMap](https://www.openstreetmap.org) land-water polygon labels
-
 Key Features:
 - 10-meter resolution land/water classification
 - millisecond distance-to-coast calculations from anywhere on earth
 - global coverage -- includes inland bodies of water (rivers, lakes, bays, etc)
-
 
 ## Requirements
 - Docker 24.0+
@@ -54,6 +48,16 @@ Expected output:
   "version": "2024-11-12T00:25:16.667195"
 }
 ```
+
+##  Algorithm 
+Lighthouse** (Layered Iterative Geospatial Hierarchical Terrain-Oriented Unified Search Engine) leverages 
+1. pre-computed spherical Voronoi tesselation of the whole planet's coastlines (at low resolution) and
+2. ball trees (at high resolution) to produce very fast computations with minimal resources.
+  
+The ball trees were generated from a hybrid dataset of satellite imagery based annotations from two sources:
+- [ESA WorldCover V2](https://esa-worldcover.org/en): 10m resolution global land cover data
+- [OpenStreetMap](https://www.openstreetmap.org) land-water polygon labels
+
 
 ## Installation
 ### Dataset Download
