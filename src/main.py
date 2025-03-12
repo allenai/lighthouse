@@ -22,7 +22,6 @@ MODEL_VERSION = os.getenv("GIT_COMMIT_HASH", datetime.today())
 app = FastAPI()
 
 
-# ✅ Added missing health check endpoint
 @app.get("/")
 async def home() -> dict:
     """Health check endpoint to confirm the service is running."""
@@ -53,7 +52,7 @@ class CoastalRequest(BaseModel):
                     "lat and lon must have the same length when batch_mode is True"
                 )
 
-            # ✅ Validate each latitude & longitude
+            # Validate each latitude & longitude
             for lat, lon in zip(self.lat, self.lon):
                 if not (-90 <= lat <= 90):
                     raise ValueError(
@@ -70,7 +69,7 @@ class CoastalRequest(BaseModel):
                     "lat and lon must be single floats when batch_mode is False"
                 )
 
-            # ✅ Validate single latitude & longitude
+            # Validate single latitude & longitude
             if not (-90 <= self.lat <= 90):
                 raise ValueError(
                     f"Invalid latitude: {self.lat}. Must be between -90 and 90."
@@ -146,13 +145,13 @@ async def detect_coastal_info(
         logger.error("Validation error: %s", e)
         raise HTTPException(
             status_code=422, detail=str(e)
-        )  # ✅ Return 422 Unprocessable Entity
+        )  
 
     except ValueError as e:
         logger.error("User input error: %s", e)
         raise HTTPException(
             status_code=400, detail=str(e)
-        )  # ✅ Return 400 Bad Request for ValueErrors
+        ) 
 
     except Exception as e:
         logger.error("Internal server error: %s", str(e), exc_info=True)
