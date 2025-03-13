@@ -168,7 +168,9 @@ def h5_to_integer(filename: str, lon: float, lat: float) -> int:
         return int(band_data[int(col), int(row)])
 
 
-def ball_tree_distance(ball_tree: BallTree, point: List[float]) -> Tuple[float, NDArray[np.float64]]:
+def ball_tree_distance(
+    ball_tree: BallTree, point: List[float]
+) -> Tuple[float, NDArray[np.float64]]:
     """Calculate distance from point to nearest coastal point in BallTree."""
     with time_operation(TimerOperations.LookupNearestCoast):
         point_rad = np.radians(point)
@@ -179,7 +181,9 @@ def ball_tree_distance(ball_tree: BallTree, point: List[float]) -> Tuple[float, 
     return distance_m, nearest_point
 
 
-def ball_tree_distance_batch(tree: BallTree, lats: np.ndarray, lons: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def ball_tree_distance_batch(
+    tree: BallTree, lats: np.ndarray, lons: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
     with time_operation(TimerOperations.LookupNearestCoast):
         points_rad = np.radians(np.column_stack((lats, lons)))
         distance_rad, indices = tree.query(points_rad, k=1)
@@ -348,14 +352,10 @@ def main(lat: float, lon: float) -> tuple[float, int, NDArray[np.float64]]:
         land_class = h5_to_integer(filename_h5, lon, lat)
         ball_tree_suffix = "_coastal_points_ball_tree.joblib"
         filename_ball_tree = filename_h5.replace(".h5", ball_tree_suffix)
-        filename_ball_tree = filename_ball_tree.replace(
-            "resampled_h5s", "ball_trees"
-        )
+        filename_ball_tree = filename_ball_tree.replace("resampled_h5s", "ball_trees")
         try:
             tile_ball_tree = get_ball_tree(filename_ball_tree)
-            distance_m, nearest_point = ball_tree_distance(
-                tile_ball_tree, [lat, lon]
-            )
+            distance_m, nearest_point = ball_tree_distance(tile_ball_tree, [lat, lon])
             return distance_m, land_class, nearest_point
         except FileNotFoundError:
             distance_m, nearest_point = coord_to_coastal_point(lat, lon)
@@ -367,9 +367,7 @@ def main(lat: float, lon: float) -> tuple[float, int, NDArray[np.float64]]:
                 return distance_m, 0, nearest_point
             filename_ball_tree = new_filename_h5.replace(".h5", ball_tree_suffix)
             tile_ball_tree = get_ball_tree(filename_ball_tree)
-            distance_m, nearest_point = ball_tree_distance(
-                tile_ball_tree, [lat, lon]
-            )
+            distance_m, nearest_point = ball_tree_distance(tile_ball_tree, [lat, lon])
             return distance_m, land_class, nearest_point
     else:
         # Ocean fallback for single point
