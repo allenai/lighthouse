@@ -1,35 +1,30 @@
 # Lighthouse
-Fast and precise distance to shoreline calculations from anywhere on earth (AoE). 
-
-##  Overview
-Ligthhouse is a library for efficiently querying a 10 meter distance to coast dataset. Lighthouse** is a hierarchical search algorithm (Layered Iterative Geospatial Hierarchical Terrain-Oriented Unified Search Engine) that leverages a pre-computed spherical Voronoi tesselation of the whole planet's coastlines (at low resolution) and ball trees (at high resolution) to produce very fast computations with minimal resources. The ball trees were generated from a hybrid dataset of satellite imagery based annotations from two sources:
-- [ESA WorldCover V2](https://esa-worldcover.org/en): 10m resolution global land cover data
-- [OpenStreetMap](https://www.openstreetmap.org) land-water polygon labels
+Fast and precise distance to shoreline calculations from anywhere on earth (AoE).
 
 Key Features:
 - 10-meter resolution land/water classification
 - millisecond distance-to-coast calculations from anywhere on earth
 - global coverage -- includes inland bodies of water (rivers, lakes, bays, etc)
 
-
 ## Requirements
 - Docker 24.0+
-- 500GB storage space (recommended*)
 - 4GB RAM
+Optional 
 - gcloud CLI (for downloading dataset)
-
-*While you can retrieve the required files on demand, doing so will result in slower query times. For streaming/real-time use cases, it is recommended to download the entire dataset to disk.
+- 500GB storage (recommended) 
+For streaming/real-time use cases, it is recommended to download the entire dataset to disk.
 
 ## Quick Start
-1. Download the dataset
+(without downloading full dataset)
 ```bash
 docker pull ghcr.io/allenai/lighthouse
 docker run -d \
   --name lighthouse \
   -p 8000:8000 \
-  -v path/to/data:/src/data \
+  -v path/to/data:/data \
   ghcr.io/allenai/lighthouse
 ```
+See ## Installation for downloading dataset from gcp. 
 
 ## Example Usage
 
@@ -54,62 +49,45 @@ Expected output:
   "version": "2024-11-12T00:25:16.667195"
 }
 ```
-
 ## Installation
-
 ### Dataset Download
+Note that this dataset is large. approximately 500 GB storage space is required for the full dataset. Individual tiles (1 degree by 1 degree) can also be downloaded rather than whole dataset. 
+The dataset is stored in a public Google Cloud Storage bucket at:
 
-1. Install gcloud CLI:
-   <details>
-   <summary>Debian/Ubuntu</summary>
+```
+gs://ai2-coastlines/v1/data
+```
 
-   ```bash
-   echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] \
-     https://packages.cloud.google.com/apt cloud-sdk main" | \
-     sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
 
-   curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | \
-     sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
-
-   sudo apt-get update && sudo apt-get install google-cloud-cli
-   ```
-   </details>
-
-   <details>
-   <summary>macOS</summary>
-
-   ```bash
-   brew install --cask google-cloud-sdk
-   ```
-   </details>
-
-2. Authenticate:
-   ```bash
-   gcloud auth login
-   ```
-
-3. Download dataset:
-   ```bash
-   mkdir -p data
-   gcloud alpha storage cp -r gs://lighthouse/data/ data/
-   ```
-### How does this work? 
-In brief we generated a spherical voronoi (at low resolution) to identify the nearest section of coastline. Then queried a precomputed ball tree (at high resolution) generated via computer vision and 10 meter resolution satellite imagery. 
-
-![voronoi (1)](https://github.com/user-attachments/assets/4e91968d-714e-451e-bf04-24e4016e2db5)
-
-^^ that's the Voronoi. 
-
-![triplet_of_fun](https://github.com/user-attachments/assets/035f797d-fa94-42e8-bb3b-7f89b077a9ee)
-^^ that's a depiction of the method. 
-
-See the paper (arXiv) for details. 
-
-### Deployment Options
-
-#### Option 1: Pre-built Image (Recommended)
 ```bash
-docker pull ghcr.io/allenai/lighthouse:sha-30b4d50
+mkdir -p data
+# using gcloud (see: https://cloud.google.com/sdk/docs/install)
+gcloud storage cp --recursive gs://ai2-coastlines/v1/data /path/to/local/data
+
+# using gsutil (see https://cloud.google.com/storage/docs/gsutil_install) 
+gutil -m cp -r gs://ai2-coastlines/v1/data /path/to/local/data
+
+# using wget (
+wget -r -np -nH --cut-dirs=3 -P data https://storage.googleapis.com/ai2-coastlines/v1/data/
+```
+
+The above command will download two types of files:
+
+a. **Ball Trees:** (`ai2-coastlines/v1/data/ball_trees`)
+   *Example:*
+   `ai2-coastlines/v1/data/ball_trees/Ai2_WorldCover_10m_2024_v1_N00E006_Map_coastal_points_ball_tree.joblib` (1.4 MB)
+
+b. **Resampled H5s:** (`ai2-coastlines/v1/data/resampled_h5s`)
+   *Example:*
+   `ai2-coastlines/v1/data/resampled_h5s/Ai2_WorldCover_10m_2024_v1_N00E006_Map.h5` (584.2 KB)
+
+### Deployment 
+(requires downloading dataset above)
+Note that some sample inferences/examples can run without the full dataset. 
+
+#### Option 1: Using Pre-built Image (Recommended)
+```bash
+docker pull ghcr.io/allenai/lighthouse:sha-X
 docker run -d \
   --name lighthouse \
   -p 8000:8000 \
@@ -117,7 +95,7 @@ docker run -d \
   ghcr.io/allenai/lighthouse:sha-X
 ```
 
-#### Option 2: Build from Source
+#### Option 2: Building from Source 
 ```bash
 git clone https://github.com/allenai/lighthouse.git
 cd lighthouse
@@ -147,7 +125,7 @@ pre-commit install
 
 ### Running Tests
 ```bash
-pytest tests/
+pytest tests
 ```
 
 ### Code Conventions
@@ -182,15 +160,35 @@ pytest tests/
    ```
 </details>
 
+### How does this algorithm work?
+Lighthouse** (Layered Iterative Geospatial Hierarchical Terrain-Oriented Unified Search Engine) leverages 
+1. pre-computed spherical Voronoi tesselation of the whole planet's coastlines (at low resolution) and
+2. ball trees (at high resolution) to produce very fast computations with minimal resources.
+  
+The ball trees were generated from a hybrid dataset of satellite imagery based annotations from two sources:
+- [ESA WorldCover V2](https://esa-worldcover.org/en): 10m resolution global land cover data
+- [OpenStreetMap](https://www.openstreetmap.org) land-water polygon labels
+  
+![voronoi (1)](https://github.com/user-attachments/assets/4e91968d-714e-451e-bf04-24e4016e2db5)
+
+^^ that's the Voronoi.
+
+![triplet_of_fun](https://github.com/user-attachments/assets/035f797d-fa94-42e8-bb3b-7f89b077a9ee)
+^^ that's a depiction of the method.
+
+See the paper ([todo: add link arXiv]) for details.
+
 ## License
-
-### Code
-Apache 2.0
-
-### Dataset:
-- License: Open Database License (ODbL) v1.0
+Code: Apache 2.0
+Dataset: Open Database License (ODbL) v1.0
   - http://opendatacommons.org/licenses/odbl/1.0/
   - http://opendatacommons.org/licenses/dbcl/1.0/
+
+## Acknowledgments
+
+We gratefully acknowledge:
+- The European Space Agency (ESA) for creating the WorldCover land cover map and for making it openly accessible
+- The OpenStreetMap community for their invaluable contributions to global mapping
 
 ## References
 ### ESA WorldCover 2021
@@ -210,11 +208,6 @@ Apache 2.0
 - Source: https://www.openstreetmap.org
 - We used the land polygon data to generate land-sea masks: https://osmdata.openstreetmap.de/data/land-polygons.html
 
-## Acknowledgments
-
-We gratefully acknowledge:
-- The European Space Agency (ESA) for creating the WorldCover land cover map and for making it openly accessible
-- The OpenStreetMap community for their invaluable contributions to global mapping
 
 ## Citation
 
@@ -228,4 +221,4 @@ We gratefully acknowledge:
 }
 ```
 
-**Also Lighthouse is an excellent coffee shop in Seattle. 
+**Also Lighthouse is an excellent coffee shop in Seattle.
