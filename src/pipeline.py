@@ -25,7 +25,7 @@ import rasterio.transform
 from numpy.typing import NDArray
 from sklearn.neighbors import BallTree
 
-from src.metrics import time_operation, TimerOperations
+from metrics import time_operation, TimerOperations
 
 # Configure logging
 logger = logging.getLogger(__name__)
