@@ -145,7 +145,7 @@ def test_initialize_coastal_ball_tree(mock_ball_tree: BallTree) -> None:
 def test_coord_to_coastal_point(mock_ball_tree: BallTree) -> None:
     """Test finding nearest coastal point."""
     with patch("joblib.load", return_value=mock_ball_tree):
-        nearest_point, distance = coord_to_coastal_point(TEST_LAT, TEST_LON)
+        distance, nearest_point = coord_to_coastal_point(TEST_LAT, TEST_LON)
         assert isinstance(nearest_point, np.ndarray)
         assert isinstance(distance, float)
         assert distance >= 0

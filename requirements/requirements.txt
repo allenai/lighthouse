@@ -100,6 +100,7 @@ pluggy>=1.5,<2
 polars>=1.10,<2
 pooch>=1.8,<2
 pre_commit>=4.0,<5
+prometheus-client>=0.21,<1
 prompt_toolkit>=3.0,<4
 psutil>=6.1,<7
 ptyprocess>=0.7,<1

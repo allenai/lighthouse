@@ -6,9 +6,12 @@ import logging
 import os
 from datetime import datetime
 from typing import List, Union
+import prometheus_client
+from prometheus_client import multiprocess, make_asgi_app
 
-from pipeline import land_water_mapping
-from pipeline import main as pipeline_main
+from pipeline import land_water_mapping, LandCoverClass
+from pipeline import main as pipeline_main, batch_main as pipeline_batch_main
+from src.metrics import TimerOperations, time_operation
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -87,7 +90,7 @@ class CoastalDetectionResponse(BaseModel):
     """Response object for a single coastal detection result."""
 
     distance_to_coast_m: int
-    land_cover_class: str
+    land_cover_class: LandCoverClass
     nearest_coastal_point: List[float]
     version: datetime
 
@@ -100,11 +103,12 @@ async def detect_coastal_info(
     try:
         if not request.batch_mode:
             # Single coordinate processing
-            distance_m, land_class_id, nearest_point = pipeline_main(
-                request.lat, request.lon, batch_mode=False
-            )
+            with time_operation(TimerOperations.TotalSingleLookup):
+                distance_m, land_class_id, nearest_point = pipeline_main(
+                    request.lat, request.lon
+                )
 
-            land_cover_class = land_water_mapping.get(land_class_id, "Unknown")
+            land_cover_class = land_water_mapping.get(land_class_id, LandCoverClass.Unknown)
             logger.info("Land cover class: %s", land_cover_class)
             logger.info("Distance to coast: %d m", distance_m)
 
@@ -122,12 +126,13 @@ async def detect_coastal_info(
             # Batch mode
             lats = np.array(request.lat)
             lons = np.array(request.lon)
-            df_results = pipeline_main(lats, lons, batch_mode=True)
+            with time_operation(TimerOperations.TotalBatchLookup):
+                df_results = pipeline_batch_main(lats, lons)
 
             responses = []
             for i, row in df_results.iterrows():
                 land_cover_class = land_water_mapping.get(
-                    int(row["land_class"]), "Unknown"
+                    int(row["land_class"]), LandCoverClass.Unknown
                 )
                 responses.append(
                     CoastalDetectionResponse(
@@ -157,6 +162,29 @@ async def detect_coastal_info(
     except Exception as e:
         logger.error("Internal server error: %s", str(e), exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+# Setup prometheus
+def setup_prom_metrics():
+    if not os.environ.get('PROMETHEUS_MULTIPROC_DIR'):
+        # If we're not using multiproc, then just use the default registry
+        return make_asgi_app()
+
+    # Otherwise setup prometheus multiproc mode.
+    multi_proc_dir = os.environ.get('PROMETHEUS_MULTIPROC_DIR', '/tmp/prometheus')
+    if os.path.isdir(multi_proc_dir):
+        for multi_proc_file in os.scandir(multi_proc_dir):
+            os.remove(multi_proc_file.path)
+    else:
+        os.makedirs(multi_proc_dir)
+
+    # Create the multiproc collector, and set it up to be connected to fastapi
+    registry = prometheus_client.CollectorRegistry()
+    multiprocess.MultiProcessCollector(registry, path=multi_proc_dir)
+    return make_asgi_app(registry=registry)
+
+
+app.mount("/metrics", setup_prom_metrics())
 
 
 if __name__ == "__main__":
