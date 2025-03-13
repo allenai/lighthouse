@@ -1,13 +1,13 @@
-from fastapi import FastAPI, HTTPException, Response
-from pydantic import BaseModel, Field, model_validator, ValidationError
-
-import numpy as np
 import logging
 import os
 from datetime import datetime
-from typing import List, Union
+from typing import List, Union, Any
+
+import numpy as np
 import prometheus_client
+from fastapi import FastAPI, HTTPException, Response
 from prometheus_client import multiprocess, make_asgi_app
+from pydantic import BaseModel, Field, model_validator, ValidationError
 
 from pipeline import land_water_mapping, LandCoverClass
 from pipeline import main as pipeline_main, batch_main as pipeline_batch_main
@@ -165,13 +165,13 @@ async def detect_coastal_info(
 
 
 # Setup prometheus
-def setup_prom_metrics():
-    if not os.environ.get('PROMETHEUS_MULTIPROC_DIR'):
+def setup_prom_metrics() -> Any:
+    multi_proc_dir = os.environ.get('PROMETHEUS_MULTIPROC_DIR')
+    if not multi_proc_dir:
         # If we're not using multiproc, then just use the default registry
         return make_asgi_app()
 
     # Otherwise setup prometheus multiproc mode.
-    multi_proc_dir = os.environ.get('PROMETHEUS_MULTIPROC_DIR', '/tmp/prometheus')
     if os.path.isdir(multi_proc_dir):
         for multi_proc_file in os.scandir(multi_proc_dir):
             os.remove(multi_proc_file.path)
