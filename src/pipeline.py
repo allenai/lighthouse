@@ -12,17 +12,20 @@ In batch mode, the pipeline can process multiple queries at once.
 import json
 import logging
 import time
+from enum import StrEnum
+from functools import lru_cache
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 import h5py
 import joblib
 import numpy as np
-import rasterio.transform
 import pandas as pd
+import rasterio.transform
 from numpy.typing import NDArray
 from sklearn.neighbors import BallTree
-from functools import lru_cache
+
+from src.metrics import time_operation, TimerOperations
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -45,21 +48,38 @@ except json.JSONDecodeError:
     logger.error(f"Could not parse bounds dictionary at {bounds_file}")
     raise
 
+
+class LandCoverClass(StrEnum):
+    PermanentWaterBodies = "Permanent water bodies"
+    Land = "Land"
+    TreeCover = "Tree cover"
+    Shrubland = "Shrubland"
+    Grassland = "Grassland"
+    Cropland = "Cropland"
+    BuiltUp = "Built-up"
+    BareSparseVegetation = "Bare/sparse vegetation"
+    SnowAndIce = "Snow and Ice"
+    HerbaceousWetland = "Herbaceous wetland"
+    Mangroves = "Mangroves"
+    MossAndLichen = "Moss and lichen"
+    Unknown = "Unknown"
+
+
 # WorldCover class ID to classification mapping
 land_water_mapping = {
-    0: "Permanent water bodies",
-    1: "Land",
-    10: "Tree cover",
-    20: "Shrubland",
-    30: "Grassland",
-    40: "Cropland",
-    50: "Built-up",
-    60: "Bare/sparse vegetation",
-    70: "Snow and Ice",
-    80: "Permanent water bodies",
-    90: "Herbaceous wetland",
-    95: "Mangroves",
-    100: "Moss and lichen",
+    0: LandCoverClass.PermanentWaterBodies,
+    1: LandCoverClass.Land,
+    10: LandCoverClass.TreeCover,
+    20: LandCoverClass.Shrubland,
+    30: LandCoverClass.Grassland,
+    40: LandCoverClass.Cropland,
+    50: LandCoverClass.BuiltUp,
+    60: LandCoverClass.BareSparseVegetation,
+    70: LandCoverClass.SnowAndIce,
+    80: LandCoverClass.PermanentWaterBodies,
+    90: LandCoverClass.HerbaceousWetland,
+    95: LandCoverClass.Mangroves,
+    100: LandCoverClass.MossAndLichen,
 }
 
 
@@ -76,15 +96,10 @@ def initialize_coastal_ball_tree() -> BallTree:
     return coastal_ball_tree
 
 
-def coord_to_coastal_point(lat: float, lon: float) -> Tuple[NDArray[np.float64], float]:
+def coord_to_coastal_point(lat: float, lon: float) -> Tuple[float, NDArray[np.float64]]:
     """Find nearest coastal point and distance from coordinates."""
     tree: BallTree = initialize_coastal_ball_tree()
-    point_rad = np.radians([lat, lon])
-    distance_rad, index = tree.query([point_rad], k=1)
-    nearest_point_rad = tree.data[index[0][0]]
-    nearest_point = np.degrees(nearest_point_rad)
-    distance_m = distance_rad[0][0] * 6371000.0  # Earth's radius in meters
-    return nearest_point, distance_m
+    return ball_tree_distance(tree, [lat, lon])
 
 
 def get_filename_for_coordinates(
@@ -131,11 +146,12 @@ def get_ball_tree(filename_ball_tree: str) -> BallTree:
         / "ball_trees"
         / filename_ball_tree
     )
-    if filename.exists():
-        tile_ball_tree = joblib.load(str(filename))
-        return tile_ball_tree
-    else:
-        raise FileNotFoundError(f"No coastal data found for tile {filename}")
+    with time_operation(TimerOperations.GetBallTree):
+        if filename.exists():
+            tile_ball_tree = joblib.load(str(filename))
+            return tile_ball_tree
+        else:
+            raise FileNotFoundError(f"No coastal data found for tile {filename}")
 
 
 def h5_to_integer(filename: str, lon: float, lat: float) -> int:
@@ -156,12 +172,27 @@ def ball_tree_distance(
     ball_tree: BallTree, point: List[float]
 ) -> Tuple[float, NDArray[np.float64]]:
     """Calculate distance from point to nearest coastal point in BallTree."""
-    point_rad = np.radians(point)
-    distance_rad, index = ball_tree.query([point_rad], k=1)
-    nearest_point_rad = ball_tree.data[index[0][0]]
-    nearest_point = np.degrees(nearest_point_rad)
-    distance_m = distance_rad[0][0] * 6371000.0
+    with time_operation(TimerOperations.LookupNearestCoast):
+        point_rad = np.radians(point)
+        distance_rad, index = ball_tree.query([point_rad], k=1)
+        nearest_point_rad = ball_tree.data[index[0][0]]
+        nearest_point = np.degrees(nearest_point_rad)
+        distance_m = distance_rad[0][0] * 6371000.0
     return distance_m, nearest_point
+
+
+def ball_tree_distance_batch(
+    tree: BallTree, lats: np.ndarray, lons: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    with time_operation(TimerOperations.LookupNearestCoast):
+        points_rad = np.radians(np.column_stack((lats, lons)))
+        distance_rad, indices = tree.query(points_rad, k=1)
+        distances_m = distance_rad.ravel() * 6371000.0
+        indices_int = indices.ravel().astype(int)
+        tile_ball_tree_data = np.asarray(tree.data)
+        nearest_points_rad = tile_ball_tree_data[indices_int]
+        nearest_points = np.degrees(nearest_points_rad)
+    return distances_m, nearest_points
 
 
 def validate_coordinates(lat: float, lon: float) -> None:
@@ -181,13 +212,7 @@ def process_batch(
     if tile_file is None:
         # Ocean case
         tree = initialize_coastal_ball_tree()
-        points_rad = np.radians(np.column_stack((lats, lons)))
-        distance_rad, indices = tree.query(points_rad, k=1)
-        distances_m = distance_rad.ravel() * 6371000.0
-        indices_int = indices.ravel().astype(int)
-        tile_ball_tree_data = np.asarray(tree.data)
-        nearest_points_rad = tile_ball_tree_data[indices_int]
-        nearest_points = np.degrees(nearest_points_rad)
+        distances_m, nearest_points = ball_tree_distance_batch(tree, lats, lons)
         # Explicitly handle ocean case with zeros array
         land_classes = np.full_like(distances_m, 0, dtype=int)  # Changed this line
         return distances_m, land_classes, nearest_points
@@ -196,16 +221,17 @@ def process_batch(
     tile_h5_path = (
         Path(__file__).resolve().parent.parent / "data" / "resampled_h5s" / tile_file
     )
-    with h5py.File(str(tile_h5_path), "r") as hdf:
-        band_data = hdf["band_data"]
-        geotransform = hdf["geotransform"][:]
+    with time_operation(TimerOperations.LoadH5File):
+        with h5py.File(str(tile_h5_path), "r") as hdf:
+            band_data = hdf["band_data"]
+            geotransform = hdf["geotransform"][:]
 
-        # Slice first 6 elements if longer
-        if geotransform.shape[0] > 6:
-            geotransform = geotransform[:6]
+            # Slice first 6 elements if longer
+            if geotransform.shape[0] > 6:
+                geotransform = geotransform[:6]
 
-        a, b, c, d, e, f = geotransform
-        band_data_arr = band_data[()]  # Load into memory
+            a, b, c, d, e, f = geotransform
+            band_data_arr = band_data[()]  # Load into memory
 
     pixel_cols = ((lons - c) / a).astype(int)
     pixel_rows = ((lats - f) / e).astype(int)
@@ -214,116 +240,57 @@ def process_batch(
     # BallTree query
     if balltree_file is not None:
         try:
-            tile_ball_tree = get_ball_tree(balltree_file)
-            points_rad = np.radians(np.column_stack((lats, lons)))
-            distance_rad, indices = tile_ball_tree.query(points_rad, k=1)
-            distances_m = distance_rad.ravel() * 6371000.0
-            indices_int = indices.ravel().astype(int)
-            tile_ball_tree_data = np.asarray(tile_ball_tree.data)
-            nearest_points_rad = tile_ball_tree_data[indices_int]
-            nearest_points = np.degrees(nearest_points_rad)
+            tree = get_ball_tree(balltree_file)
         except FileNotFoundError:
             # Fallback to global coastal ball tree
             tree = initialize_coastal_ball_tree()
-            points_rad = np.radians(np.column_stack((lats, lons)))
-            distance_rad, indices = tree.query(points_rad, k=1)
-            distances_m = distance_rad.ravel() * 6371000.0
-            indices_int = indices.ravel().astype(int)
-            tile_ball_tree_data = np.asarray(tree.data)
-            nearest_points_rad = tile_ball_tree_data[indices_int]
-            nearest_points = np.degrees(nearest_points_rad)
     else:
         # No tile-specific balltree
         tree = initialize_coastal_ball_tree()
-        points_rad = np.radians(np.column_stack((lats, lons)))
-        distance_rad, indices = tree.query(points_rad, k=1)
-        distances_m = distance_rad.ravel() * 6371000.0
-        indices_int = indices.ravel().astype(int)
-        tile_ball_tree_data = np.asarray(tree.data)
-        nearest_points_rad = tile_ball_tree_data[indices_int]
-        nearest_points = np.degrees(nearest_points_rad)
 
+    distances_m, nearest_points = ball_tree_distance_batch(tree, lats, lons)
     return distances_m, land_classes, nearest_points
 
 
-def main(
-    lat: Union[float, np.ndarray],
-    lon: Union[float, np.ndarray],
-    batch_mode: bool = False,
-) -> Union[Tuple[float, int, NDArray[np.float64]], pd.DataFrame]:
-    if not batch_mode:
-        # Single point logic unchanged
-        validate_coordinates(lat, lon)
-        filename_h5 = get_filename_for_coordinates(lat, lon, bounds_dict)
-        if filename_h5:
-            land_class = h5_to_integer(filename_h5, lon, lat)
-            ball_tree_suffix = "_coastal_points_ball_tree.joblib"
-            filename_ball_tree = filename_h5.replace(".h5", ball_tree_suffix)
-            filename_ball_tree = filename_ball_tree.replace(
-                "resampled_h5s", "ball_trees"
-            )
-            try:
-                tile_ball_tree = get_ball_tree(filename_ball_tree)
-                distance_m, nearest_point = ball_tree_distance(
-                    tile_ball_tree, [lat, lon]
-                )
-                return distance_m, land_class, nearest_point
-            except FileNotFoundError:
-                nearest_point, distance_m = coord_to_coastal_point(lat, lon)
-                new_filename_h5 = get_filename_for_coordinates(
-                    nearest_point[0], nearest_point[1], bounds_dict
-                )
-                if new_filename_h5 is None:
-                    # No tile for nearest coastal point, ocean fallback
-                    return distance_m, 0, nearest_point
-                filename_ball_tree = new_filename_h5.replace(".h5", ball_tree_suffix)
-                tile_ball_tree = get_ball_tree(filename_ball_tree)
-                distance_m, nearest_point = ball_tree_distance(
-                    tile_ball_tree, [lat, lon]
-                )
-                return distance_m, land_class, nearest_point
+def batch_main(lat: np.ndarray, lon: np.ndarray) -> pd.DataFrame:
+    # Batch mode
+    lats = np.asarray(lat)
+    lons = np.asarray(lon)
+
+    # Validate coordinates
+    for la, lo in zip(lats, lons):
+        validate_coordinates(la, lo)
+
+    # Get filenames in bulk
+    filenames_h5 = get_filename_for_coordinates_vectorized(lats, lons, bounds_dict)
+    balltree_files: List[Optional[str]] = []
+    for fn in filenames_h5:
+        if fn is not None:
+            balltree_file = fn.replace(".h5", "_coastal_points_ball_tree.joblib")
+            balltree_file = balltree_file.replace("resampled_h5s", "ball_trees")
+            balltree_files.append(balltree_file)
         else:
-            # Ocean fallback for single point
-            nearest_point, distance_m = coord_to_coastal_point(lat, lon)
-            return distance_m, 0, nearest_point
-    else:
-        # Batch mode
-        lats = np.asarray(lat)
-        lons = np.asarray(lon)
+            # ocean fallback
+            balltree_files.append(None)
 
-        # Validate coordinates
-        for la, lo in zip(lats, lons):
-            validate_coordinates(la, lo)
+    df = pd.DataFrame(
+        {
+            "lat": lats,
+            "lon": lons,
+            "tile_file": filenames_h5,
+            "balltree_file": balltree_files,
+        }
+    )
 
-        # Get filenames in bulk
-        filenames_h5 = get_filename_for_coordinates_vectorized(lats, lons, bounds_dict)
-        balltree_files: List[Optional[str]] = []
-        for fn in filenames_h5:
-            if fn is not None:
-                balltree_file = fn.replace(".h5", "_coastal_points_ball_tree.joblib")
-                balltree_file = balltree_file.replace("resampled_h5s", "ball_trees")
-                balltree_files.append(balltree_file)
-            else:
-                # ocean fallback
-                balltree_files.append(None)
+    # Separate rows with tile_file == None (ocean)
+    ocean_df = df[df["tile_file"].isna()]
+    tile_df = df[~df["tile_file"].isna()]
 
-        df = pd.DataFrame(
-            {
-                "lat": lats,
-                "lon": lons,
-                "tile_file": filenames_h5,
-                "balltree_file": balltree_files,
-            }
-        )
+    results = []
 
-        # Separate rows with tile_file == None (ocean)
-        ocean_df = df[df["tile_file"].isna()]
-        tile_df = df[~df["tile_file"].isna()]
-
-        results = []
-
-        # Process batch queries for tiles
-        if not tile_df.empty:
+    # Process batch queries for tiles
+    if not tile_df.empty:
+        with time_operation(TimerOperations.BatchLandTileLookups):
             grouped = tile_df.groupby(["tile_file", "balltree_file"])
             for (tile_file, balltree_file), group in grouped:
                 dists, lc, npnts = process_batch(
@@ -340,41 +307,72 @@ def main(
                 )
                 results.append(result_df)
 
-        # Process ocean points individually
-        if not ocean_df.empty:
-            # We'll loop through each coordinate and handle them one by one
-            dist_list = []
-            lc_list = []
-            nearest_lat_list = []
-            nearest_lon_list = []
+    # Process ocean points individually
+    if not ocean_df.empty:
+        # We'll loop through each coordinate and handle them one by one
+        dist_list = []
+        lc_list = []
+        nearest_lat_list = []
+        nearest_lon_list = []
 
-            for idx, row in ocean_df.iterrows():
-                la, lo = row["lat"], row["lon"]
-                nearest_point, distance_m = coord_to_coastal_point(la, lo)
-                # Ocean => land_class = 0
-                dist_list.append(distance_m)
-                lc_list.append(0)
-                nearest_lat_list.append(nearest_point[0])
-                nearest_lon_list.append(nearest_point[1])
+        for idx, row in ocean_df.iterrows():
+            la, lo = row["lat"], row["lon"]
+            distance_m, nearest_point = coord_to_coastal_point(la, lo)
+            # Ocean => land_class = 0
+            dist_list.append(distance_m)
+            lc_list.append(0)
+            nearest_lat_list.append(nearest_point[0])
+            nearest_lon_list.append(nearest_point[1])
 
-            ocean_result_df = pd.DataFrame(
-                {
-                    "distance_m": dist_list,
-                    "land_class": lc_list,
-                    "nearest_lat": nearest_lat_list,
-                    "nearest_lon": nearest_lon_list,
-                },
-                index=ocean_df.index,
+        ocean_result_df = pd.DataFrame(
+            {
+                "distance_m": dist_list,
+                "land_class": lc_list,
+                "nearest_lat": nearest_lat_list,
+                "nearest_lon": nearest_lon_list,
+            },
+            index=ocean_df.index,
+        )
+        results.append(ocean_result_df)
+
+    if results:
+        final_results = pd.concat(results).sort_index()
+    else:
+        # No results at all
+        final_results = pd.DataFrame()
+
+    return final_results
+
+
+def main(lat: float, lon: float) -> tuple[float, int, NDArray[np.float64]]:
+    # Single point logic unchanged
+    validate_coordinates(lat, lon)
+    filename_h5 = get_filename_for_coordinates(lat, lon, bounds_dict)
+    if filename_h5:
+        land_class = h5_to_integer(filename_h5, lon, lat)
+        ball_tree_suffix = "_coastal_points_ball_tree.joblib"
+        filename_ball_tree = filename_h5.replace(".h5", ball_tree_suffix)
+        filename_ball_tree = filename_ball_tree.replace("resampled_h5s", "ball_trees")
+        try:
+            tile_ball_tree = get_ball_tree(filename_ball_tree)
+            distance_m, nearest_point = ball_tree_distance(tile_ball_tree, [lat, lon])
+            return distance_m, land_class, nearest_point
+        except FileNotFoundError:
+            distance_m, nearest_point = coord_to_coastal_point(lat, lon)
+            new_filename_h5 = get_filename_for_coordinates(
+                nearest_point[0], nearest_point[1], bounds_dict
             )
-            results.append(ocean_result_df)
-
-        if results:
-            final_results = pd.concat(results).sort_index()
-        else:
-            # No results at all
-            final_results = pd.DataFrame()
-
-        return final_results
+            if new_filename_h5 is None:
+                # No tile for nearest coastal point, ocean fallback
+                return distance_m, 0, nearest_point
+            filename_ball_tree = new_filename_h5.replace(".h5", ball_tree_suffix)
+            tile_ball_tree = get_ball_tree(filename_ball_tree)
+            distance_m, nearest_point = ball_tree_distance(tile_ball_tree, [lat, lon])
+            return distance_m, land_class, nearest_point
+    else:
+        # Ocean fallback for single point
+        distance_m, nearest_point = coord_to_coastal_point(lat, lon)
+        return distance_m, 0, nearest_point
 
 
 if __name__ == "__main__":
@@ -403,10 +401,10 @@ if __name__ == "__main__":
         (47.637000, -122.335000),
         (0.0, 0.0),
     ]  # Just as an example
-    lats = [c[0] for c in coords]
-    lons = [c[1] for c in coords]
+    lats = np.array([c[0] for c in coords])
+    lons = np.array([c[1] for c in coords])
 
     start = time.perf_counter()
-    batch_results = main(lats, lons, batch_mode=True)
+    batch_results = batch_main(lats, lons)
     logger.info("Batch query results:\n%s", batch_results)
     logger.info("Batch processing time: %f seconds", time.perf_counter() - start)
