@@ -9,9 +9,9 @@ Key Features:
 ## Requirements
 - Docker 24.0+
 - 4GB RAM
-Optional 
+Optional
 - gcloud CLI (for downloading dataset)
-- 500GB storage (recommended) 
+- 500GB storage (recommended)
 For streaming/real-time use cases, it is recommended to download the entire dataset to disk.
 
 ## Quick Start
@@ -24,7 +24,7 @@ docker run -d \
   -v path/to/data:/data \
   ghcr.io/allenai/lighthouse
 ```
-See ## Installation for downloading dataset from gcp. 
+See ## Installation for downloading dataset from gcp.
 
 ## Example Usage
 
@@ -51,7 +51,7 @@ Expected output:
 ```
 ## Installation
 ### Dataset Download
-Note that this dataset is large. approximately 500 GB storage space is required for the full dataset. Individual tiles (1 degree by 1 degree) can also be downloaded rather than whole dataset. 
+Note that this dataset is large. approximately 500 GB storage space is required for the full dataset. Individual tiles (1 degree by 1 degree) can also be downloaded rather than whole dataset.
 The dataset is stored in a public Google Cloud Storage bucket at:
 
 ```
@@ -64,7 +64,7 @@ mkdir -p data
 # using gcloud (see: https://cloud.google.com/sdk/docs/install)
 gcloud storage cp --recursive gs://ai2-coastlines/v1/data /path/to/local/data
 
-# using gsutil (see https://cloud.google.com/storage/docs/gsutil_install) 
+# using gsutil (see https://cloud.google.com/storage/docs/gsutil_install)
 gutil -m cp -r gs://ai2-coastlines/v1/data /path/to/local/data
 
 # using wget (
@@ -81,9 +81,9 @@ b. **Resampled H5s:** (`ai2-coastlines/v1/data/resampled_h5s`)
    *Example:*
    `ai2-coastlines/v1/data/resampled_h5s/Ai2_WorldCover_10m_2024_v1_N00E006_Map.h5` (584.2 KB)
 
-### Deployment 
+### Deployment
 (requires downloading dataset above)
-Note that some sample inferences/examples can run without the full dataset. 
+Note that some sample inferences/examples can run without the full dataset.
 
 #### Option 1: Using Pre-built Image (Recommended)
 ```bash
@@ -95,7 +95,7 @@ docker run -d \
   ghcr.io/allenai/lighthouse:sha-X
 ```
 
-#### Option 2: Building from Source 
+#### Option 2: Building from Source
 ```bash
 git clone https://github.com/allenai/lighthouse.git
 cd lighthouse
@@ -161,14 +161,14 @@ pytest tests
 </details>
 
 ### How does this algorithm work?
-Lighthouse** (Layered Iterative Geospatial Hierarchical Terrain-Oriented Unified Search Engine) leverages 
+Lighthouse** (Layered Iterative Geospatial Hierarchical Terrain-Oriented Unified Search Engine) leverages
 1. pre-computed spherical Voronoi tesselation of the whole planet's coastlines (at low resolution) and
 2. ball trees (at high resolution) to produce very fast computations with minimal resources.
-  
+
 The ball trees were generated from a hybrid dataset of satellite imagery based annotations from two sources:
 - [ESA WorldCover V2](https://esa-worldcover.org/en): 10m resolution global land cover data
 - [OpenStreetMap](https://www.openstreetmap.org) land-water polygon labels
-  
+
 ![voronoi (1)](https://github.com/user-attachments/assets/4e91968d-714e-451e-bf04-24e4016e2db5)
 
 ^^ that's the Voronoi.

@@ -150,13 +150,13 @@ async def detect_coastal_info(
         logger.error("Validation error: %s", e)
         raise HTTPException(
             status_code=422, detail=str(e)
-        )  
+        )
 
     except ValueError as e:
         logger.error("User input error: %s", e)
         raise HTTPException(
             status_code=400, detail=str(e)
-        ) 
+        )
 
     except Exception as e:
         logger.error("Internal server error: %s", str(e), exc_info=True)
