@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, model_validator, ValidationError
 
 from pipeline import land_water_mapping, LandCoverClass
 from pipeline import main as pipeline_main, batch_main as pipeline_batch_main
-from src.metrics import TimerOperations, time_operation
+from metrics import TimerOperations, time_operation
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

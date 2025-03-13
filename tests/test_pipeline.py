@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from sklearn.neighbors import BallTree
 
-from src.pipeline import (
+from pipeline import (
     ball_tree_distance,
     coord_to_coastal_point,
     get_ball_tree,
@@ -92,19 +92,19 @@ def test_main_with_different_locations(
     """Test main function with different geographic locations."""
     with (
         patch(
-            "src.pipeline.get_filename_for_coordinates",
+            "pipeline.get_filename_for_coordinates",
             return_value="test.h5",
         ),
         patch(
-            "src.pipeline.h5_to_integer",
+            "pipeline.h5_to_integer",
             return_value=expected_class,
         ),
         patch(
-            "src.pipeline.get_ball_tree",
+            "pipeline.get_ball_tree",
             return_value=mock_ball_tree,
         ),
         patch(
-            "src.pipeline.ball_tree_distance",
+            "pipeline.ball_tree_distance",
             return_value=(100.0, np.array([lat, lon])),
         ),
     ):
@@ -128,7 +128,7 @@ def test_edge_cases() -> None:
         main(0.0, -181.0)  # Invalid negative longitude
 
     # Test boundary values (these should not raise errors)
-    with patch("src.pipeline.get_filename_for_coordinates") as mock_get_filename:
+    with patch("pipeline.get_filename_for_coordinates") as mock_get_filename:
         mock_get_filename.return_value = None  # Simulate ocean point
         main(90.0, 180.0)  # Maximum valid values
         main(-90.0, -180.0)  # Minimum valid values
@@ -208,10 +208,10 @@ def test_ball_tree_distance(mock_ball_tree: BallTree) -> None:
     assert len(nearest_point) == 2
 
 
-@patch("src.pipeline.get_filename_for_coordinates")
-@patch("src.pipeline.h5_to_integer")
-@patch("src.pipeline.get_ball_tree")
-@patch("src.pipeline.ball_tree_distance")
+@patch("pipeline.get_filename_for_coordinates")
+@patch("pipeline.h5_to_integer")
+@patch("pipeline.get_ball_tree")
+@patch("pipeline.ball_tree_distance")
 def test_main(
     mock_distance: MagicMock,
     mock_get_tree: MagicMock,
