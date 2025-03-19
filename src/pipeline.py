@@ -175,7 +175,7 @@ def get_h5_data(tile_filename: str) -> tuple[NDArray, rasterio.transform.Affine]
             if geotransform.shape[0] > 6:
                 geotransform = geotransform[:6]
 
-            band_data_arr = band_data[()]
+            band_data_arr = band_data[()]  # Load into memory
     return band_data_arr, rasterio.transform.Affine(*geotransform)
 
 

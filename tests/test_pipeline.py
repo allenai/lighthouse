@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
+import rasterio.transform
 from sklearn.neighbors import BallTree
 
 from pipeline import (
@@ -15,6 +16,7 @@ from pipeline import (
     initialize_coastal_ball_tree,
     land_water_mapping,
     main,
+    get_h5_data,
 )
 
 # Test data
@@ -50,17 +52,20 @@ def mock_ball_tree() -> BallTree:
 def mock_h5_file() -> MagicMock:
     """Create a mock HDF5 file with test data."""
     mock = MagicMock()
-    mock["band_data"] = np.array([[50]])  # Test land class
-    mock["geotransform"] = np.array(
-        [
-            0.0,  # x-coordinate of upper-left corner
-            0.001,  # pixel width
-            0.0,  # rotation (usually 0)
-            90.0,  # y-coordinate of upper-left corner
-            0.0,  # rotation (usually 0)
-            -0.001,  # pixel height (negative because origin is upper-left)
-        ]
-    )
+    mock_values = {
+        "band_data": np.array([[50]]),  # Test land class
+        "geotransform": np.array(
+            [
+                0.0,  # x-coordinate of upper-left corner
+                0.001,  # pixel width
+                0.0,  # rotation (usually 0)
+                90.0,  # y-coordinate of upper-left corner
+                0.0,  # rotation (usually 0)
+                -0.001,  # pixel height (negative because origin is upper-left)
+            ]
+        ),
+    }
+    mock.__getitem__.side_effect = lambda key: mock_values[key]
     return mock
 
 
@@ -178,6 +183,17 @@ def test_get_ball_tree(
     mock_exists.return_value = False
     with pytest.raises(FileNotFoundError):
         get_ball_tree("nonexistent.joblib")
+
+
+@patch("h5py.File")
+def test_get_h5_data(mock_h5py: MagicMock, mock_h5_file: MagicMock) -> None:
+    """Test getting land-water classification."""
+    mock_h5py.return_value.__enter__.return_value = mock_h5_file
+
+    data, transform = get_h5_data("test.h5")
+    assert isinstance(data, np.ndarray)
+    assert isinstance(transform, rasterio.transform.Affine)
+    assert transform.a == 0.0  # mocked value
 
 
 @patch("rasterio.transform.Affine")
