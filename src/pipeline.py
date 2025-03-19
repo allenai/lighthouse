@@ -11,6 +11,7 @@ In batch mode, the pipeline can process multiple queries at once.
 
 import json
 import logging
+import os
 import time
 from enum import StrEnum
 from functools import lru_cache
@@ -37,6 +38,9 @@ ball_tree_cache: Dict[str, BallTree] = {}  # Cache for Ball Trees
 # Load the saved bounds dictionary
 DATA_DIR = Path(__file__).parent / "data"
 bounds_file = DATA_DIR / "bounds_dictionary.json"
+
+BALL_TREE_CACHE_SIZE = int(os.environ.get("BALL_TREE_CACHE_SIZE", 5))
+H5_FILE_CACHE_SIZE = int(os.environ.get("H5_FILE_CACHE_SIZE", 5))
 
 try:
     with open(bounds_file, "r") as f:
@@ -137,7 +141,7 @@ def get_filename_for_coordinates_vectorized(
     return results
 
 
-@lru_cache(maxsize=10)  # tune as needed
+@lru_cache(maxsize=BALL_TREE_CACHE_SIZE)
 def get_ball_tree(filename_ball_tree: str) -> BallTree:
     """Load a BallTree from a joblib file for a specific region."""
     filename = (
@@ -154,18 +158,34 @@ def get_ball_tree(filename_ball_tree: str) -> BallTree:
             raise FileNotFoundError(f"No coastal data found for tile {filename}")
 
 
+@lru_cache(maxsize=H5_FILE_CACHE_SIZE)
+def get_h5_data(tile_filename: str) -> tuple[NDArray, rasterio.transform.Affine]:
+    tile_h5_path = (
+        Path(__file__).resolve().parent.parent
+        / "data"
+        / "resampled_h5s"
+        / tile_filename
+    )
+    with time_operation(TimerOperations.LoadH5File):
+        with h5py.File(str(tile_h5_path), "r") as hdf:
+            band_data = hdf["band_data"]
+            geotransform = hdf["geotransform"][:]
+
+            # Slice first 6 elements if longer
+            if geotransform.shape[0] > 6:
+                geotransform = geotransform[:6]
+
+            band_data_arr = band_data[()]
+    return band_data_arr, rasterio.transform.Affine(*geotransform)
+
+
 def h5_to_integer(filename: str, lon: float, lat: float) -> int:
     """Get land-water classification for coordinates from HDF5 file."""
-    filepath = (
-        Path(__file__).resolve().parent.parent / "data" / "resampled_h5s" / filename
-    )
-    with h5py.File(str(filepath), "r") as hdf:
-        band_data = hdf["band_data"]
-        geotransform = hdf["geotransform"][:]
+    band_data, geotransform = get_h5_data(filename)
 
-        # a, b, c, d, e, f = geotransform
-        row, col = ~rasterio.transform.Affine(*geotransform) * (lon, lat)
-        return int(band_data[int(col), int(row)])
+    # a, b, c, d, e, f = geotransform
+    row, col = ~geotransform * (lon, lat)
+    return int(band_data[int(col), int(row)])
 
 
 def ball_tree_distance(
@@ -218,23 +238,10 @@ def process_batch(
         return distances_m, land_classes, nearest_points
 
     # Load HDF5 data
-    tile_h5_path = (
-        Path(__file__).resolve().parent.parent / "data" / "resampled_h5s" / tile_file
-    )
-    with time_operation(TimerOperations.LoadH5File):
-        with h5py.File(str(tile_h5_path), "r") as hdf:
-            band_data = hdf["band_data"]
-            geotransform = hdf["geotransform"][:]
+    band_data_arr, geotransform = get_h5_data(tile_file)
 
-            # Slice first 6 elements if longer
-            if geotransform.shape[0] > 6:
-                geotransform = geotransform[:6]
-
-            a, b, c, d, e, f = geotransform
-            band_data_arr = band_data[()]  # Load into memory
-
-    pixel_cols = ((lons - c) / a).astype(int)
-    pixel_rows = ((lats - f) / e).astype(int)
+    pixel_cols = ((lons - geotransform.c) / geotransform.a).astype(int)
+    pixel_rows = ((lats - geotransform.f) / geotransform.e).astype(int)
     land_classes = band_data_arr[pixel_rows, pixel_cols]
 
     # BallTree query
