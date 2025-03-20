@@ -208,7 +208,7 @@ def test_h5_to_integer(
         0,
     )  # Mock row, col result
 
-    land_class = h5_to_integer("test.h5", TEST_LON, TEST_LAT)
+    land_class = h5_to_integer("test.h5", 0.00, 0.00)
     assert isinstance(land_class, int)
     assert 0 <= land_class <= 100
 
