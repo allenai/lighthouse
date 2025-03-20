@@ -234,7 +234,8 @@ def process_batch(
         return distances_m, land_classes, nearest_points
 
     # Load HDF5 data
-    land_classes = h5_to_landcover(tile_file, lats, lons)
+    with time_operation(TimerOperations.LoadH5File):
+        land_classes = h5_to_landcover(tile_file, lats, lons)
 
     # BallTree query
     if balltree_file is not None:
