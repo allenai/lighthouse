@@ -4,7 +4,6 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-import rasterio.transform
 from sklearn.neighbors import BallTree
 
 from pipeline import (
@@ -12,11 +11,11 @@ from pipeline import (
     coord_to_coastal_point,
     get_ball_tree,
     get_filename_for_coordinates,
-    h5_to_integer,
+    h5_to_landcover,
     initialize_coastal_ball_tree,
     land_water_mapping,
     main,
-    get_h5_data,
+    LandCoverClass,
 )
 
 # Test data
@@ -185,32 +184,21 @@ def test_get_ball_tree(
         get_ball_tree("nonexistent.joblib")
 
 
-@patch("h5py.File")
-def test_get_h5_data(mock_h5py: MagicMock, mock_h5_file: MagicMock) -> None:
-    """Test getting land-water classification."""
-    mock_h5py.return_value.__enter__.return_value = mock_h5_file
-
-    data, transform = get_h5_data("test.h5")
-    assert isinstance(data, np.ndarray)
-    assert isinstance(transform, rasterio.transform.Affine)
-    assert transform.a == 0.0  # mocked value
-
-
 @patch("rasterio.transform.Affine")
 @patch("h5py.File")
-def test_h5_to_integer(
+def test_h5_to_landcover(
     mock_h5py: MagicMock, mock_affine: MagicMock, mock_h5_file: MagicMock
 ) -> None:
     """Test getting land-water classification."""
     mock_h5py.return_value.__enter__.return_value = mock_h5_file
     mock_affine.return_value.__invert__.return_value.__mul__.return_value = (
-        0,
-        0,
+        np.array([0]),
+        np.array([0]),
     )  # Mock row, col result
 
-    land_class = h5_to_integer("test.h5", 0.00, 0.00)
-    assert isinstance(land_class, int)
-    assert 0 <= land_class <= 100
+    land_class = h5_to_landcover("test.h5", np.array([0.00]), np.array([0.00]))
+    assert len(land_class) == 1
+    assert land_class[0] == LandCoverClass.BuiltUp  # value provided in text fixture
 
 
 def test_ball_tree_distance(mock_ball_tree: BallTree) -> None:

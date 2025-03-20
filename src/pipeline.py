@@ -40,7 +40,6 @@ DATA_DIR = Path(__file__).parent / "data"
 bounds_file = DATA_DIR / "bounds_dictionary.json"
 
 BALL_TREE_CACHE_SIZE = int(os.environ.get("BALL_TREE_CACHE_SIZE", 5))
-H5_FILE_CACHE_SIZE = int(os.environ.get("H5_FILE_CACHE_SIZE", 5))
 
 try:
     with open(bounds_file, "r") as f:
@@ -158,34 +157,29 @@ def get_ball_tree(filename_ball_tree: str) -> BallTree:
             raise FileNotFoundError(f"No coastal data found for tile {filename}")
 
 
-@lru_cache(maxsize=H5_FILE_CACHE_SIZE)
-def get_h5_data(tile_filename: str) -> tuple[NDArray, rasterio.transform.Affine]:
-    tile_h5_path = (
-        Path(__file__).resolve().parent.parent
-        / "data"
-        / "resampled_h5s"
-        / tile_filename
-    )
-    with time_operation(TimerOperations.LoadH5File):
-        with h5py.File(str(tile_h5_path), "r") as hdf:
-            band_data = hdf["band_data"]
-            geotransform = hdf["geotransform"][:]
-
-            # Slice first 6 elements if longer
-            if geotransform.shape[0] > 6:
-                geotransform = geotransform[:6]
-
-            band_data_arr = band_data[()]  # Load into memory
-    return band_data_arr, rasterio.transform.Affine(*geotransform)
-
-
-def h5_to_integer(filename: str, lon: float, lat: float) -> int:
+def h5_to_landcover(
+    filename: str,
+    lats: np.ndarray,
+    lons: np.ndarray,
+) -> list[LandCoverClass]:
     """Get land-water classification for coordinates from HDF5 file."""
-    band_data, geotransform = get_h5_data(filename)
+    filepath = (
+        Path(__file__).resolve().parent.parent / "data" / "resampled_h5s" / filename
+    )
+    with h5py.File(str(filepath), "r") as hdf:
+        band_data = hdf["band_data"]
+        geotransform = hdf["geotransform"][:]
 
-    # a, b, c, d, e, f = geotransform
-    row, col = ~geotransform * (lon, lat)
-    return int(band_data[int(col), int(row)])
+        rows, cols = ~rasterio.transform.Affine(*geotransform) * (lons, lats)
+        # Convert to integer indices for lookup in hdf5 file.
+        row_int = np.round(rows).astype(int)
+        col_int = np.round(cols).astype(int)
+
+        class_ids = [band_data[c, r] for r, c in zip(row_int, col_int)]
+        return [
+            land_water_mapping.get(class_id, LandCoverClass.Unknown)
+            for class_id in class_ids
+        ]
 
 
 def ball_tree_distance(
@@ -228,21 +222,19 @@ def process_batch(
     balltree_file: Optional[str],
     lats: np.ndarray,
     lons: np.ndarray,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, list[LandCoverClass], np.ndarray]:
     if tile_file is None:
         # Ocean case
         tree = initialize_coastal_ball_tree()
         distances_m, nearest_points = ball_tree_distance_batch(tree, lats, lons)
         # Explicitly handle ocean case with zeros array
-        land_classes = np.full_like(distances_m, 0, dtype=int)  # Changed this line
+        land_classes = np.full_like(
+            distances_m, LandCoverClass.Unknown, dtype=int
+        ).tolist()
         return distances_m, land_classes, nearest_points
 
     # Load HDF5 data
-    band_data_arr, geotransform = get_h5_data(tile_file)
-
-    pixel_cols = ((lons - geotransform.c) / geotransform.a).astype(int)
-    pixel_rows = ((lats - geotransform.f) / geotransform.e).astype(int)
-    land_classes = band_data_arr[pixel_rows, pixel_cols]
+    land_classes = h5_to_landcover(tile_file, lats, lons)
 
     # BallTree query
     if balltree_file is not None:
@@ -317,8 +309,8 @@ def batch_main(lat: np.ndarray, lon: np.ndarray) -> pd.DataFrame:
     # Process ocean points individually
     if not ocean_df.empty:
         # We'll loop through each coordinate and handle them one by one
-        dist_list = []
-        lc_list = []
+        dist_list: list[float] = []
+        lc_list: list[LandCoverClass] = []
         nearest_lat_list = []
         nearest_lon_list = []
 
@@ -327,7 +319,7 @@ def batch_main(lat: np.ndarray, lon: np.ndarray) -> pd.DataFrame:
             distance_m, nearest_point = coord_to_coastal_point(la, lo)
             # Ocean => land_class = 0
             dist_list.append(distance_m)
-            lc_list.append(0)
+            lc_list.append(LandCoverClass.Unknown)
             nearest_lat_list.append(nearest_point[0])
             nearest_lon_list.append(nearest_point[1])
 
@@ -351,12 +343,12 @@ def batch_main(lat: np.ndarray, lon: np.ndarray) -> pd.DataFrame:
     return final_results
 
 
-def main(lat: float, lon: float) -> tuple[float, int, NDArray[np.float64]]:
+def main(lat: float, lon: float) -> tuple[float, LandCoverClass, NDArray[np.float64]]:
     # Single point logic unchanged
     validate_coordinates(lat, lon)
     filename_h5 = get_filename_for_coordinates(lat, lon, bounds_dict)
     if filename_h5:
-        land_class = h5_to_integer(filename_h5, lon, lat)
+        land_class = h5_to_landcover(filename_h5, np.array([lat]), np.array([lon]))[0]
         ball_tree_suffix = "_coastal_points_ball_tree.joblib"
         filename_ball_tree = filename_h5.replace(".h5", ball_tree_suffix)
         filename_ball_tree = filename_ball_tree.replace("resampled_h5s", "ball_trees")
@@ -371,7 +363,7 @@ def main(lat: float, lon: float) -> tuple[float, int, NDArray[np.float64]]:
             )
             if new_filename_h5 is None:
                 # No tile for nearest coastal point, ocean fallback
-                return distance_m, 0, nearest_point
+                return distance_m, LandCoverClass.Unknown, nearest_point
             filename_ball_tree = new_filename_h5.replace(".h5", ball_tree_suffix)
             tile_ball_tree = get_ball_tree(filename_ball_tree)
             distance_m, nearest_point = ball_tree_distance(tile_ball_tree, [lat, lon])
@@ -379,7 +371,7 @@ def main(lat: float, lon: float) -> tuple[float, int, NDArray[np.float64]]:
     else:
         # Ocean fallback for single point
         distance_m, nearest_point = coord_to_coastal_point(lat, lon)
-        return distance_m, 0, nearest_point
+        return distance_m, LandCoverClass.Unknown, nearest_point
 
 
 if __name__ == "__main__":
@@ -396,7 +388,7 @@ if __name__ == "__main__":
     distance_m, land_or_water, nearest_point = main(latitude, longitude)
     logger.info(
         f"Single query result: {distance_m} meters to coast, "
-        f"land cover class: {land_water_mapping[land_or_water]}, "
+        f"land cover class: {land_or_water}, "
         f"nearest coastal point: {nearest_point}"
     )
     logger.info("Processing time: %f seconds", time.perf_counter() - start)
