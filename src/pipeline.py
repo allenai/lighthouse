@@ -320,7 +320,7 @@ def batch_main(lat: np.ndarray, lon: np.ndarray) -> pd.DataFrame:
             distance_m, nearest_point = coord_to_coastal_point(la, lo)
             # Ocean => land_class = 0
             dist_list.append(distance_m)
-            lc_list.append(LandCoverClass.Unknown)
+            lc_list.append(LandCoverClass.PermanentWaterBodies)
             nearest_lat_list.append(nearest_point[0])
             nearest_lon_list.append(nearest_point[1])
 
@@ -364,7 +364,7 @@ def main(lat: float, lon: float) -> tuple[float, LandCoverClass, NDArray[np.floa
             )
             if new_filename_h5 is None:
                 # No tile for nearest coastal point, ocean fallback
-                return distance_m, LandCoverClass.Unknown, nearest_point
+                return distance_m, LandCoverClass.PermanentWaterBodies, nearest_point
             filename_ball_tree = new_filename_h5.replace(".h5", ball_tree_suffix)
             tile_ball_tree = get_ball_tree(filename_ball_tree)
             distance_m, nearest_point = ball_tree_distance(tile_ball_tree, [lat, lon])
@@ -372,7 +372,7 @@ def main(lat: float, lon: float) -> tuple[float, LandCoverClass, NDArray[np.floa
     else:
         # Ocean fallback for single point
         distance_m, nearest_point = coord_to_coastal_point(lat, lon)
-        return distance_m, LandCoverClass.Unknown, nearest_point
+        return distance_m, LandCoverClass.PermanentWaterBodies, nearest_point
 
 
 if __name__ == "__main__":

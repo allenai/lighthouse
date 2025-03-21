@@ -89,7 +89,7 @@ def test_land_water_mapping_values() -> None:
 def test_main_with_different_locations(
     lat: float,
     lon: float,
-    expected_class: int,
+    expected_class: LandCoverClass,
     description: str,
     mock_ball_tree: BallTree,
 ) -> None:
@@ -100,8 +100,8 @@ def test_main_with_different_locations(
             return_value="test.h5",
         ),
         patch(
-            "pipeline.h5_to_integer",
-            return_value=expected_class,
+            "pipeline.h5_to_landcover",
+            return_value=[expected_class],
         ),
         patch(
             "pipeline.get_ball_tree",
@@ -213,7 +213,7 @@ def test_ball_tree_distance(mock_ball_tree: BallTree) -> None:
 
 
 @patch("pipeline.get_filename_for_coordinates")
-@patch("pipeline.h5_to_integer")
+@patch("pipeline.h5_to_landcover")
 @patch("pipeline.get_ball_tree")
 @patch("pipeline.ball_tree_distance")
 def test_main(
@@ -226,7 +226,7 @@ def test_main(
     """Test main pipeline function."""
     # Setup mocks
     mock_filename.return_value = "test.h5"
-    mock_h5.return_value = 50  # Built-up area
+    mock_h5.return_value = [LandCoverClass.BuiltUp]
     mock_get_tree.return_value = mock_ball_tree
     mock_distance.return_value = (100.0, np.array([47.6, -122.3]))
 
@@ -236,13 +236,13 @@ def test_main(
     assert len(result) == 3
     distance, land_class, nearest = result
     assert isinstance(distance, float)
-    assert isinstance(land_class, int)
+    assert isinstance(land_class, LandCoverClass)
     assert isinstance(nearest, np.ndarray)
 
     # Test point in ocean
     mock_filename.return_value = None
     result = main(0.0, -160.0)
-    assert result[1] == 0  # Should be water
+    assert result[1] == LandCoverClass.PermanentWaterBodies  # Should be water
 
 
 if __name__ == "__main__":
