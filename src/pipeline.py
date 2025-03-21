@@ -227,9 +227,9 @@ def process_batch(
         # Ocean case
         tree = initialize_coastal_ball_tree()
         distances_m, nearest_points = ball_tree_distance_batch(tree, lats, lons)
-        # Explicitly handle ocean case with zeros array
+        # Explicitly handle ocean case
         land_classes = np.full_like(
-            distances_m, LandCoverClass.Unknown, dtype=int
+            distances_m, LandCoverClass.PermanentWaterBodies, dtype=int
         ).tolist()
         return distances_m, land_classes, nearest_points
 
