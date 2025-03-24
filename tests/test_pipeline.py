@@ -11,10 +11,11 @@ from pipeline import (
     coord_to_coastal_point,
     get_ball_tree,
     get_filename_for_coordinates,
-    h5_to_integer,
+    h5_to_landcover,
     initialize_coastal_ball_tree,
     land_water_mapping,
     main,
+    LandCoverClass,
 )
 
 # Test data
@@ -50,17 +51,20 @@ def mock_ball_tree() -> BallTree:
 def mock_h5_file() -> MagicMock:
     """Create a mock HDF5 file with test data."""
     mock = MagicMock()
-    mock["band_data"] = np.array([[50]])  # Test land class
-    mock["geotransform"] = np.array(
-        [
-            0.0,  # x-coordinate of upper-left corner
-            0.001,  # pixel width
-            0.0,  # rotation (usually 0)
-            90.0,  # y-coordinate of upper-left corner
-            0.0,  # rotation (usually 0)
-            -0.001,  # pixel height (negative because origin is upper-left)
-        ]
-    )
+    mock_values = {
+        "band_data": np.array([[50]]),  # Test land class
+        "geotransform": np.array(
+            [
+                0.0,  # x-coordinate of upper-left corner
+                0.001,  # pixel width
+                0.0,  # rotation (usually 0)
+                90.0,  # y-coordinate of upper-left corner
+                0.0,  # rotation (usually 0)
+                -0.001,  # pixel height (negative because origin is upper-left)
+            ]
+        ),
+    }
+    mock.__getitem__.side_effect = lambda key: mock_values[key]
     return mock
 
 
@@ -85,7 +89,7 @@ def test_land_water_mapping_values() -> None:
 def test_main_with_different_locations(
     lat: float,
     lon: float,
-    expected_class: int,
+    expected_class: LandCoverClass,
     description: str,
     mock_ball_tree: BallTree,
 ) -> None:
@@ -96,8 +100,8 @@ def test_main_with_different_locations(
             return_value="test.h5",
         ),
         patch(
-            "pipeline.h5_to_integer",
-            return_value=expected_class,
+            "pipeline.h5_to_landcover",
+            return_value=[expected_class],
         ),
         patch(
             "pipeline.get_ball_tree",
@@ -182,19 +186,19 @@ def test_get_ball_tree(
 
 @patch("rasterio.transform.Affine")
 @patch("h5py.File")
-def test_h5_to_integer(
+def test_h5_to_landcover(
     mock_h5py: MagicMock, mock_affine: MagicMock, mock_h5_file: MagicMock
 ) -> None:
     """Test getting land-water classification."""
     mock_h5py.return_value.__enter__.return_value = mock_h5_file
     mock_affine.return_value.__invert__.return_value.__mul__.return_value = (
-        0,
-        0,
+        np.array([0]),
+        np.array([0]),
     )  # Mock row, col result
 
-    land_class = h5_to_integer("test.h5", TEST_LON, TEST_LAT)
-    assert isinstance(land_class, int)
-    assert 0 <= land_class <= 100
+    land_class = h5_to_landcover("test.h5", np.array([0.00]), np.array([0.00]))
+    assert len(land_class) == 1
+    assert land_class[0] == LandCoverClass.BuiltUp  # value provided in text fixture
 
 
 def test_ball_tree_distance(mock_ball_tree: BallTree) -> None:
@@ -209,7 +213,7 @@ def test_ball_tree_distance(mock_ball_tree: BallTree) -> None:
 
 
 @patch("pipeline.get_filename_for_coordinates")
-@patch("pipeline.h5_to_integer")
+@patch("pipeline.h5_to_landcover")
 @patch("pipeline.get_ball_tree")
 @patch("pipeline.ball_tree_distance")
 def test_main(
@@ -222,7 +226,7 @@ def test_main(
     """Test main pipeline function."""
     # Setup mocks
     mock_filename.return_value = "test.h5"
-    mock_h5.return_value = 50  # Built-up area
+    mock_h5.return_value = [LandCoverClass.BuiltUp]
     mock_get_tree.return_value = mock_ball_tree
     mock_distance.return_value = (100.0, np.array([47.6, -122.3]))
 
@@ -232,13 +236,13 @@ def test_main(
     assert len(result) == 3
     distance, land_class, nearest = result
     assert isinstance(distance, float)
-    assert isinstance(land_class, int)
+    assert isinstance(land_class, LandCoverClass)
     assert isinstance(nearest, np.ndarray)
 
     # Test point in ocean
     mock_filename.return_value = None
     result = main(0.0, -160.0)
-    assert result[1] == 0  # Should be water
+    assert result[1] == LandCoverClass.PermanentWaterBodies  # Should be water
 
 
 if __name__ == "__main__":

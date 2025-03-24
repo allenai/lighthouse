@@ -103,11 +103,10 @@ async def detect_coastal_info(
         if not request.batch_mode:
             # Single coordinate processing
             with time_operation(TimerOperations.TotalSingleLookup):
-                distance_m, land_class_id, nearest_point = pipeline_main(
+                distance_m, land_cover_class, nearest_point = pipeline_main(
                     request.lat, request.lon
                 )
 
-            land_cover_class = land_water_mapping.get(land_class_id, LandCoverClass.Unknown)
             logger.info("Land cover class: %s", land_cover_class)
             logger.info("Distance to coast: %d m", distance_m)
 
