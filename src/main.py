@@ -9,9 +9,9 @@ from fastapi import FastAPI, HTTPException, Response
 from prometheus_client import multiprocess, make_asgi_app
 from pydantic import BaseModel, Field, model_validator, ValidationError
 
-from pipeline import land_water_mapping, LandCoverClass
-from pipeline import main as pipeline_main, batch_main as pipeline_batch_main
 from metrics import TimerOperations, time_operation
+from pipeline import LandCoverClass
+from pipeline import main as pipeline_main, batch_main as pipeline_batch_main
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -129,13 +129,10 @@ async def detect_coastal_info(
 
             responses = []
             for i, row in df_results.iterrows():
-                land_cover_class = land_water_mapping.get(
-                    int(row["land_class"]), LandCoverClass.Unknown
-                )
                 responses.append(
                     CoastalDetectionResponse(
                         distance_to_coast_m=int(row["distance_m"]),
-                        land_cover_class=land_cover_class,
+                        land_cover_class=row["land_class"],
                         nearest_coastal_point=[
                             round(float(row["nearest_lat"]), 5),
                             round(float(row["nearest_lon"]), 5),
