@@ -8,10 +8,10 @@ Key Features:
 
 ## Requirements
 - Docker 24.0+
-- 4GB RAM
-Optional
-- gcloud CLI (for downloading dataset)
-- 500GB storage (recommended)
+- 4GB RAM 
+- gcloud CLI (optional, for downloading dataset)
+- 500GB storage (recommended to store above dataset)
+  
 For streaming/real-time use cases, it is recommended to download the entire dataset to disk.
 
 ## Quick Start
@@ -180,6 +180,7 @@ See the paper ([todo: add link arXiv]) for details.
 
 ## License
 Code: Apache 2.0
+
 Dataset: Open Database License (ODbL) v1.0
   - http://opendatacommons.org/licenses/odbl/1.0/
   - http://opendatacommons.org/licenses/dbcl/1.0/
@@ -219,6 +220,7 @@ We gratefully acknowledge:
   url = {https://github.com/allenai/lighthouse},
   note = {Uses ESA WorldCover 2021 and OpenStreetMap data}
 }
+
 ```
 
 **Also Lighthouse is an excellent coffee shop in Seattle.
