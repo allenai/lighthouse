@@ -4,18 +4,17 @@ Fast and precise distance to shoreline calculations from anywhere on earth (AoE)
 Key Features:
 - 10-meter resolution land/water classification
 - millisecond distance-to-coast calculations from anywhere on earth
-- global coverage -- includes inland bodies of water (rivers, lakes, bays, etc)
+- global coverage (including inland bodies of water such as rivers, lakes, bays, etc)
 
 ## Requirements
 - Docker 24.0+
-- 4GB RAM 
-- gcloud CLI (optional, for downloading dataset)
-- 500GB storage (recommended to store above dataset)
+- 1 CPU
+- 2GB RAM 
   
-For streaming/real-time use cases, it is recommended to download the entire dataset to disk.
+For streaming/real-time use cases, it is recommended to download the entire dataset (500 GB) to disk. 
+- [gcloud cli](https://cloud.google.com/sdk/docs/install) to download data
 
 ## Quick Start
-(without downloading full dataset)
 ```bash
 docker pull ghcr.io/allenai/lighthouse
 docker run -d \
@@ -57,7 +56,6 @@ The dataset is stored in a public Google Cloud Storage bucket at:
 ```
 gs://ai2-coastlines/v1/data
 ```
-
 
 ```bash
 mkdir -p data
