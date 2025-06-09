@@ -220,5 +220,4 @@ We gratefully acknowledge:
 }
 
 ```
-
 **Also Lighthouse is an excellent coffee shop in Seattle.
