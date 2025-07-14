@@ -1,10 +1,12 @@
 # Lighthouse
-Fast and precise distance to shoreline calculations from anywhere on earth (AoE).
+Fast and precise distance to shoreline calculations from anywhere on earth (AoE). 
+See [arXiv](https://arxiv.org/abs/2506.18842) for details. 
 
 Key Features:
-- 10-meter resolution land/water classification
+- 10-meter resolution land/water classification 
 - millisecond distance-to-coast calculations from anywhere on earth
-- global coverage (including inland bodies of water such as rivers, lakes, bays, etc)
+- global coverage
+- includes inland bodies of water such as rivers, lakes, bays, etc
 
 ## Requirements
 - Docker 24.0+
@@ -23,7 +25,7 @@ docker run -d \
   -v path/to/data:/data \
   ghcr.io/allenai/lighthouse
 ```
-See ## Installation for downloading dataset from gcp.
+See Installation for downloading dataset from gcp.
 
 ## Example Usage
 
@@ -50,9 +52,8 @@ Expected output:
 ```
 ## Installation
 ### Dataset Download
-Note that this dataset is large. approximately 500 GB storage space is required for the full dataset. Individual tiles (1 degree by 1 degree) can also be downloaded rather than whole dataset.
+Note that the full dataset requires approximately 500 GB of storage space. 
 The dataset is stored in a public Google Cloud Storage bucket at:
-
 ```
 gs://ai2-coastlines/v1/data
 ```
@@ -78,6 +79,8 @@ a. **Ball Trees:** (`ai2-coastlines/v1/data/ball_trees`)
 b. **Resampled H5s:** (`ai2-coastlines/v1/data/resampled_h5s`)
    *Example:*
    `ai2-coastlines/v1/data/resampled_h5s/Ai2_WorldCover_10m_2024_v1_N00E006_Map.h5` (584.2 KB)
+
+Individual tiles (1 degree by 1 degree) can also be downloaded. The lat/lon in the filename coresponds to the upper left corner of the tile (e.g. N00E006). 
 
 ### Deployment
 (requires downloading dataset above)
@@ -209,15 +212,6 @@ We gratefully acknowledge:
 
 
 ## Citation
-
-```bibtex
-@software{Lighthouse2024,
-  title = {Lighthouse: High-Precision Coastal Distance Calculator},
-  author = {{Allen Institute for AI}},
-  year = {2024},
-  url = {https://github.com/allenai/lighthouse},
-  note = {Uses ESA WorldCover 2021 and OpenStreetMap data}
-}
-
+Lighthouse: https://arxiv.org/abs/2506.18842
 ```
 **Also Lighthouse is an excellent coffee shop in Seattle.
