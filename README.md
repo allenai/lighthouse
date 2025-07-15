@@ -1,9 +1,9 @@
 # Lighthouse
-Fast and precise distance to shoreline calculations from anywhere on earth (AoE). 
-See [arXiv](https://arxiv.org/abs/2506.18842) for details. 
+Fast and precise distance to shoreline calculations from anywhere on earth (AoE).
+See [arXiv](https://arxiv.org/abs/2506.18842) for details.
 
 Key Features:
-- 10-meter resolution land/water classification 
+- 10-meter resolution land/water classification
 - millisecond distance-to-coast calculations from anywhere on earth
 - global coverage
 - includes inland bodies of water such as rivers, lakes, bays, etc
@@ -11,9 +11,9 @@ Key Features:
 ## Requirements
 - Docker 24.0+
 - 1 CPU
-- 2GB RAM 
-  
-For streaming/real-time use cases, it is recommended to download the entire dataset (500 GB) to disk. 
+- 2GB RAM
+
+For streaming/real-time use cases, it is recommended to download the entire dataset (500 GB) to disk.
 - [gcloud cli](https://cloud.google.com/sdk/docs/install) to download data
 
 ## Quick Start
@@ -52,7 +52,7 @@ Expected output:
 ```
 ## Installation
 ### Dataset Download
-Note that the full dataset requires approximately 500 GB of storage space. 
+Note that the full dataset requires approximately 500 GB of storage space.
 The dataset is stored in a public Google Cloud Storage bucket at:
 ```
 gs://ai2-coastlines/v1/data
@@ -80,7 +80,7 @@ b. **Resampled H5s:** (`ai2-coastlines/v1/data/resampled_h5s`)
    *Example:*
    `ai2-coastlines/v1/data/resampled_h5s/Ai2_WorldCover_10m_2024_v1_N00E006_Map.h5` (584.2 KB)
 
-Individual tiles (1 degree by 1 degree) can also be downloaded. The lat/lon in the filename coresponds to the upper left corner of the tile (e.g. N00E006). 
+Individual tiles (1 degree by 1 degree) can also be downloaded. The lat/lon in the filename coresponds to the upper left corner of the tile (e.g. N00E006).
 
 ### Deployment
 (requires downloading dataset above)
