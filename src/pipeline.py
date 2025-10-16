@@ -172,8 +172,9 @@ def h5_to_landcover(
 
         rows, cols = ~rasterio.transform.Affine(*geotransform) * (lons, lats)
         # Convert to integer indices for lookup in hdf5 file.
-        row_int = np.round(rows).astype(int)
-        col_int = np.round(cols).astype(int)
+        # Clamp to valid range [0, 11999] to handle boundary conditions
+        row_int = np.clip(np.round(rows).astype(int), 0, 11999)
+        col_int = np.clip(np.round(cols).astype(int), 0, 11999)
 
         class_ids = [band_data[c, r] for r, c in zip(row_int, col_int)]
         return [

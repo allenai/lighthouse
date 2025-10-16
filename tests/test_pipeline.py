@@ -201,6 +201,76 @@ def test_h5_to_landcover(
     assert land_class[0] == LandCoverClass.BuiltUp  # value provided in text fixture
 
 
+@patch("rasterio.transform.Affine")
+@patch("h5py.File")
+def test_h5_to_landcover_boundary_conditions(
+    mock_h5py: MagicMock, mock_affine: MagicMock
+) -> None:
+    """Test h5_to_landcover with boundary condition edge cases that would cause IndexError."""
+    # Create mock HDF5 file with 12000x12000 array
+    mock_h5_file = MagicMock()
+    mock_band_data = np.full((12000, 12000), 50, dtype=np.uint8)  # All built-up
+    mock_values = {
+        "band_data": mock_band_data,
+        "geotransform": np.array(
+            [
+                0.0,  # x-coordinate of upper-left corner (longitude)
+                1.0 / 12000,  # pixel width (1 degree / 12000 pixels)
+                0.0,  # rotation (usually 0)
+                90.0,  # y-coordinate of upper-left corner (latitude)
+                0.0,  # rotation (usually 0)
+                -1.0 / 12000,  # pixel height (negative)
+            ]
+        ),
+    }
+    mock_h5_file.__getitem__.side_effect = lambda key: mock_values[key]
+    mock_h5py.return_value.__enter__.return_value = mock_h5_file
+
+    # Test case 1: Coordinate that would produce index 12000 (at upper boundary)
+    # With the fix, this should be clamped to 11999
+    mock_affine.return_value.__invert__.return_value.__mul__.return_value = (
+        np.array([12000.0]),  # This would be out of bounds without clamping
+        np.array([12000.0]),  # This would be out of bounds without clamping
+    )
+
+    land_class = h5_to_landcover("test.h5", np.array([1.0]), np.array([1.0]))
+    assert len(land_class) == 1
+    assert land_class[0] == LandCoverClass.BuiltUp
+
+    # Test case 2: Coordinate very close to boundary (11999.9 should round to 12000)
+    mock_affine.return_value.__invert__.return_value.__mul__.return_value = (
+        np.array([11999.9]),  # Rounds to 12000
+        np.array([11999.9]),  # Rounds to 12000
+    )
+
+    land_class = h5_to_landcover("test.h5", np.array([0.999999]), np.array([0.999999]))
+    assert len(land_class) == 1
+    assert land_class[0] == LandCoverClass.BuiltUp
+
+    # Test case 3: Batch processing with multiple boundary coordinates
+    mock_affine.return_value.__invert__.return_value.__mul__.return_value = (
+        np.array([0.0, 11999.5, 12000.0, 5999.5]),  # Mix of normal and boundary
+        np.array([0.0, 11999.5, 12000.0, 5999.5]),
+    )
+
+    land_class = h5_to_landcover(
+        "test.h5", np.array([0.0, 0.999, 1.0, 0.5]), np.array([0.0, 0.999, 1.0, 0.5])
+    )
+    assert len(land_class) == 4
+    for lc in land_class:
+        assert lc == LandCoverClass.BuiltUp
+
+    # Test case 4: Negative indices (should be clamped to 0)
+    mock_affine.return_value.__invert__.return_value.__mul__.return_value = (
+        np.array([-1.0]),  # Negative index
+        np.array([-1.0]),  # Negative index
+    )
+
+    land_class = h5_to_landcover("test.h5", np.array([-0.001]), np.array([-0.001]))
+    assert len(land_class) == 1
+    assert land_class[0] == LandCoverClass.BuiltUp
+
+
 def test_ball_tree_distance(mock_ball_tree: BallTree) -> None:
     """Test calculating distance to nearest coastal point."""
     point = [TEST_LAT, TEST_LON]
