@@ -254,9 +254,7 @@ def test_h5_to_landcover_boundary_conditions(
     )
 
     land_class = h5_to_landcover(
-        "test.h5",
-        np.array([0.0, 0.999, 1.0, 0.5]),
-        np.array([0.0, 0.999, 1.0, 0.5])
+        "test.h5", np.array([0.0, 0.999, 1.0, 0.5]), np.array([0.0, 0.999, 1.0, 0.5])
     )
     assert len(land_class) == 4
     for lc in land_class:
