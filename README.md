@@ -177,7 +177,7 @@ The ball trees were generated from a hybrid dataset of satellite imagery based a
 <img width="1389" height="483" alt="Screenshot 2025-12-11 at 21 50 32" src="https://github.com/user-attachments/assets/879bf5e1-32cf-462b-bdc8-631f060f6d92" />
 ^^ that's a depiction of the method.
 
-See the paper ([todo: add link arXiv]) for details.
+See [arXiv](https://arxiv.org/abs/2506.18842) paper for details.
 
 ## License
 Code: Apache 2.0
