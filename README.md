@@ -174,7 +174,7 @@ The ball trees were generated from a hybrid dataset of satellite imagery based a
 
 ^^ that's the Voronoi.
 
-![triplet_of_fun](https://github.com/user-attachments/assets/035f797d-fa94-42e8-bb3b-7f89b077a9ee)
+<img width="1389" height="483" alt="Screenshot 2025-12-11 at 21 50 32" src="https://github.com/user-attachments/assets/879bf5e1-32cf-462b-bdc8-631f060f6d92" />
 ^^ that's a depiction of the method.
 
 See the paper ([todo: add link arXiv]) for details.
