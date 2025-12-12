@@ -1,12 +1,13 @@
 # Lighthouse
 Fast and precise distance to shoreline calculations from anywhere on earth (AoE).
-See [arXiv](https://arxiv.org/abs/2506.18842) for details.
 
 Key Features:
 - 10-meter resolution land/water classification
 - millisecond distance-to-coast calculations from anywhere on earth
 - global coverage
 - includes inland bodies of water such as rivers, lakes, bays, etc
+
+Citation: [arXiv](https://arxiv.org/abs/2506.18842) 
 
 ## Requirements
 - Docker 24.0+
